@@ -58,6 +58,11 @@ struct UdpTarget: Codable, Equatable {
 final class AppStore: ObservableObject {
     static let shared = AppStore()
     
+    // 绑定设备
+    private var cancellables = Set<AnyCancellable>()
+    // 用 lastChosenH10Id 锚定“当前正要连接的那个设备”，避免误把其他设备的连接事件映射到 H10 卡片
+    private var lastChosenH10Id: String? = nil
+    
     // 是否启用内置模拟数据（先默认 true，等接入 Polar 后可关掉）
     @Published var simulateData: Bool = true
     // 内部记录定时器（仅在 simulateData 为 true 时启用）
@@ -136,7 +141,57 @@ final class AppStore: ObservableObject {
     private var intervStart: Date? = nil
     private var intervAccum: TimeInterval = 0
 
-    private init() {}
+    private init() {
+        // 启动时就建立与 PolarManager 的绑定
+        bindPolar()
+    }
+    
+    // 将 PolarManager 的事件映射到 h10State
+    private func bindPolar() {
+        let pm = PolarManager.shared
+
+        // 1) 扫描结果：出现 H10 → discovered；否则在未连接时 not_found
+        pm.$discovered
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] list in
+                guard let self = self else { return }
+                let hasH10 = list.contains { $0.name.localizedCaseInsensitiveContains("h10") }
+                if self.h10State != .connected {
+                    self.h10State = hasH10 ? .discovered : .not_found
+                }
+            }
+            .store(in: &cancellables)
+
+        // 2) 连接中：若是我们刚刚选择的设备，则进入 connecting
+        pm.$connectingId
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] id in
+                guard let self = self else { return }
+                if let id = id, id == self.lastChosenH10Id {
+                    self.h10State = .connecting
+                }
+            }
+            .store(in: &cancellables)
+
+        // 3) 已连接/断开：根据 id 判断是否为 H10（用 lastChosenH10Id 锚定）
+        pm.$connectedId
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] id in
+                guard let self = self else { return }
+                if let id = id, id == self.lastChosenH10Id {
+                    self.h10State = .connected
+                    self.refreshSourcesByConnectedDevices()
+                } else {
+                    // 若不是我们选中的 H10 或变为 nil：在非 connecting 状态下回退
+                    if self.h10State != .connecting {
+                        // 若扫描里仍能看到 H10，则回退到 discovered，否则 not_found
+                        let hasH10 = pm.discovered.contains { $0.name.localizedCaseInsensitiveContains("h10") }
+                        self.h10State = hasH10 ? .discovered : .not_found
+                    }
+                }
+            }
+            .store(in: &cancellables)
+    }
 
     // 改目标（做简单校验）
     func applyTarget(host: String, port: Int) {
@@ -187,6 +242,10 @@ final class AppStore: ObservableObject {
         if h10State    == .connected { set.formUnion([.ecg, .hr]) }
         activeSources = Array(set).sorted { $0.rawValue < $1.rawValue }
         print("[AppStore] activeSources -> \(activeSources.map { $0.title }.joined(separator: ","))")
+        
+        // 进入采集页时就能清晰看到有哪些可选数据类型
+        let availNames = Array(self.availableSignals).map { $0.title }.sorted().joined(separator: ",")
+        print("[Signals][Available] \(availNames)")
     }
     
     // 用户选择收集哪个数据
@@ -205,7 +264,21 @@ final class AppStore: ObservableObject {
         case "verity":
             guard verityConnected else { return }
         case "h10":
-            guard h10Connected else { return }
+            //点击 H10 即发起连接”的实现
+            if h10Connected {
+                // 已连接：点击即刷新可订阅的数据源（维持你原有语义）
+                refreshSourcesByConnectedDevices()
+                return
+            }
+            // 未连接：发起连接
+            guard let id = bestH10CandidateId() else {
+                pushError("尚未发现 H10，请确认已佩戴/开启，且关闭 Polar Flow。")
+                return
+            }
+            h10State = .connecting
+            lastChosenH10Id = id
+            print("[AppStore][H10] connect -> \(id)")
+            PolarManager.shared.connect(id: id)
         default:
             break
         }
@@ -221,6 +294,15 @@ final class AppStore: ObservableObject {
     func setH10State(_ s: DeviceState) {
         h10State = s
         refreshSourcesByConnectedDevices()
+    }
+    
+    // 选一个最合适的 H10 设备（先按名称包含 H10 过滤，若无则退化为 RSSI 最大的任意设备）
+    private func bestH10CandidateId() -> String? {
+        let list = PolarManager.shared.discovered
+        let h10s  = list.filter { $0.name.localizedCaseInsensitiveContains("h10") }
+        let base  = h10s.isEmpty ? list : h10s
+        let best  = base.max(by: { $0.rssi < $1.rssi })
+        return best?.id
     }
     
     // --- 采集页面-当前采集状态栏配置信息 ---

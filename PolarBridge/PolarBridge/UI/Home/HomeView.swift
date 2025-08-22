@@ -107,7 +107,17 @@ struct HomeView: View {
             }
             .navigationTitle("生理信号记录")
             .navigationBarTitleDisplayMode(.inline)
+            
+            // 扫描设备
+            .onAppear {
+                PolarManager.shared.startScan(prefix: "Polar")
+            }
+            .onDisappear {
+                PolarManager.shared.stopScan()
+            }
         }
     }
 }
+
+
 

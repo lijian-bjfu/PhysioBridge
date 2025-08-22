@@ -90,6 +90,14 @@ struct CollectView: View {
                             .padding(.vertical, 2)
                         }
                         .padding(.vertical, 4)
+                        
+                        Divider().padding(.top, 4)
+                        
+                        // 卡片下方增加只读“已选择”摘要
+                        let selectedTitles = store.selectedSignals.map { $0.title }.sorted().joined(separator: "、")
+                        Text(selectedTitles.isEmpty ? "未选择任何数据类型" : "已选择：\(selectedTitles)")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                     }
                 }
 
@@ -222,9 +230,7 @@ private extension CollectView {
         Array(store.availableSignals).sorted { $0.rawValue < $1.rawValue }
     }
 }
-//
-// ────────────────────── 下面是本文件内的轻量 UI 工具 ──────────────────────
-//
+// MARK: - 下面是本文件内的轻量 UI 工具
 
 /// 小节标题
 private struct SectionHeader: View {
@@ -325,7 +331,6 @@ private struct StatusChip: View {
         // 无独立背景/边框：看起来就是“大卡片里的文字块”
     }
 }
-
 /// 阶段计时小卡：上方时间（mm:ss），下方标签；
 /// - active：当前阶段正在运行 → 高亮底色/描边
 /// - started：这个阶段是否已经开始过 → 决定时间文字是灰色还是黑色
