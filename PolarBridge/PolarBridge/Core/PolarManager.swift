@@ -17,7 +17,7 @@ import CoreBluetooth
 import PolarBleSdk
 import RxSwift
 
-/// 扫描、连接、订阅 HR/IBI 的集中管理器（单例）。
+/// 扫描、连接、订阅 HR/IBI 的集中管理器。
 final class PolarManager: NSObject, ObservableObject {
 
     // MARK: - Singleton
@@ -64,6 +64,21 @@ final class PolarManager: NSObject, ObservableObject {
     private let disposeBag = DisposeBag()              // 备用清理袋（当前主要使用手动 Disposable 字段）
     private var scanDisposable: Disposable?            // 扫描订阅
     private var hrDisposable: Disposable?              // HR 流订阅
+    
+    // 统一管理“当前激活的流”
+    private var activeStreams = Set<SignalKind>()
+
+    // HR/RR 共用一条 HR 流，通过两个布尔开关决定是否各自发送
+    private var wantHR = false
+    private var wantRR = false
+
+    // 预留 ECG/ACC 的订阅句柄（任务 3 实现）
+    private var ecgDisposable: Disposable?
+    private var accDisposable: Disposable?
+
+    // 批次序号：用于 QA（检测丢批、重排）
+    private var ecgSeq: UInt64 = 0
+    private var accSeq: UInt64 = 0
 
     // MARK: - 初始化与观察者挂载
     override init() {
@@ -122,7 +137,7 @@ final class PolarManager: NSObject, ObservableObject {
             self.log("SCAN", "10 秒内未发现设备。请确认：1) H10 已佩戴并开启；2) 关闭 Polar Flow；3) iPhone 蓝牙已开启。")
         }
 
-        // 启动极化（Polar）SDK 扫描
+        // 启动 Polar SDK 扫描
         scanDisposable = api
             .searchForDevice(withRequiredDeviceNamePrefix: prefix)
             .observe(on: MainScheduler.instance)
@@ -189,6 +204,297 @@ final class PolarManager: NSObject, ObservableObject {
             print("[DISCONNECT][ERROR] \(error)")
         }
     }
+    // MARK: - Streaming orchestration (所选即采)
+
+    /// 根据研究者的选择集合，启动或停止对应数据流。applySelection 是统一入口：外部只需要传入“当前选中的信号集合”，就能完成差分启停
+    /// - Parameters:
+    ///   - deviceId: 已连接的设备 ID
+    ///   - kinds: 研究者在 UI 中勾选的信号集合（SignalKind）
+    @MainActor
+    func applySelection(deviceId: String, kinds: Set<SignalKind>) {
+        // 计算差分
+        let toStart = kinds.subtracting(activeStreams)
+        let toStop  = activeStreams.subtracting(kinds)
+        
+        // 首次选择 ECG/ACC 时，仅打印设备能力，暂不真正开流
+        if toStart.contains(.ecg) {
+            probeEcgSettings(id: deviceId)
+        }
+        if toStart.contains(.acc) {
+            probeAccSettings(id: deviceId)
+        }
+
+        // 先停后启，避免同一流先开后关的抖动
+        for k in toStop { stop(kind: k) }
+        for k in toStart { start(kind: k, deviceId: deviceId) }
+
+        // HR/RR 共用一条底层 HR 订阅，通过开关决定是否发送
+        // 如果两者都不需要了，主动停掉 HR 订阅；如果其中一个需要，确保 HR 订阅存在
+        let needHRStream = kinds.contains(.hr) || kinds.contains(.rr)
+        if !needHRStream {
+            stopHr()            // 没人需要就停订阅
+            wantHR = false
+            wantRR = false
+        } else {
+            ensureHrStream(id: deviceId)
+            wantHR = kinds.contains(.hr)
+            wantRR = kinds.contains(.rr)
+        }
+
+        activeStreams = kinds
+        log("STREAM", "applySelection -> \(kinds.map{$0.title}.sorted().joined(separator: ","))")
+    }
+
+    /// 停止所有已激活的数据流
+    @MainActor
+    func stopAllStreams() {
+        stopHr()
+        ecgDisposable?.dispose(); ecgDisposable = nil
+        accDisposable?.dispose(); accDisposable = nil
+        activeStreams.removeAll()
+        wantHR = false
+        wantRR = false
+        log("STREAM", "stopAllStreams")
+    }
+
+    /// 启动指定信号（除 HR/RR 外，HR/RR 在 ensureHrStream 统一处理）
+    private func start(kind: SignalKind, deviceId: String) {
+        switch kind {
+        case .hr, .rr:
+            // HR/RR 的底层订阅由 ensureHrStream 统一处理；这里只设置开关由 applySelection 完成
+            break
+        case .ecg:
+            // 若已有订阅先停止，避免重复回调
+            ecgDisposable?.dispose()
+            ecgDisposable = api
+                .requestStreamSettings(deviceId, feature: .ecg)
+                .asObservable() // Single -> Observable，便于统一 subscribe(onNext:onError:)
+                .flatMap { [weak self] settings -> Observable<PolarEcgData> in
+                    guard let self = self else { return .empty() }
+
+                    // 从 settings.settings 中挑选采样率与分辨率
+                    // 你的探测结果显示 sampleRate=[130], resolution=[14]
+                    let srSet: Set<UInt32> = settings.settings[.sampleRate] ?? []
+                    let rsSet: Set<UInt32> = settings.settings[.resolution] ?? []
+
+                    // 首选 130Hz；如果设备不支持，则取集合中的最小可用值兜底
+                    let srChosen: UInt32 = srSet.contains(130) ? 130 : (srSet.sorted().first ?? 130)
+                    // 分辨率优先取 14；不支持则取集合中的最小可用值兜底
+                    let rsChosen: UInt32 = rsSet.contains(14) ? 14 : (rsSet.sorted().first ?? 14)
+
+                    // PolarSensorSetting 构造函数接收 [SettingType: UInt32]，值是“单个”UInt32
+                    var dict: [PolarSensorSetting.SettingType: UInt32] = [
+                        .sampleRate: srChosen
+                    ]
+                    // 分辨率在设备上有返回（resolution=[14]），加入即可；若以后没有该键也能正常工作
+                    if !(rsSet.isEmpty) {
+                        dict[.resolution] = rsChosen
+                    }
+                    let chosen = PolarSensorSetting(dict)
+
+                    self.log("ECG", "start with settings: sampleRate=\(srChosen)\(dict[.resolution] != nil ? ", resolution=\(rsChosen)" : "")")
+                    return self.api.startEcgStreaming(deviceId, settings: chosen)
+                }
+                .observe(on: MainScheduler.instance)
+                .subscribe(onNext: { [weak self] ecg in
+                    guard let self = self else { return }
+                    let t = Date().timeIntervalSince1970
+
+                    // PolarEcgData 在 6.5.0 是数组 [(timeStamp, voltage)]
+                    let uV: [Int] = ecg.map { Int($0.voltage) }
+
+                    // 控制台摘要
+                    if let first = uV.first, let last = uV.last {
+                        self.log("ECG", "batch n=\(uV.count) uV[\(first)...\(last)]")
+                    } else {
+                        self.log("ECG", "batch n=\(uV.count)")
+                    }
+
+                    // 仅当所选集合仍包含 ECG 时才对外发送
+                    if self.activeStreams.contains(.ecg) {
+                        let arr = uV.map(String.init).joined(separator: ",")
+                        let n = uV.count
+                        let seq = self.ecgSeq
+                        // &+= 是 Swift 的“溢出运算”自增，避免极端长时间运行时的 trap
+                        self.ecgSeq &+= 1
+
+                        UDPSenderService.shared.send(
+                            #"{"type":"ecg","fs":130,"n":\#(n),"seq":\#(seq),"uV":[\#(arr)],"t_device":\#(t),"device":"H10"}"#
+                        )
+                        Task { @MainActor in AppStore.shared.markSent() }
+                    }
+                }, onError: { [weak self] err in
+                    self?.log("ECG", "stream error: \(err)")
+                })
+
+            log("STREAM", "ECG started (fs=130Hz)")
+        case .acc:
+            // 若已有订阅先停止，避免重复回调
+            accDisposable?.dispose()
+            // 1) 先查询 ACC 可用设置，再用所选设置开启流
+            accDisposable = api
+                .requestStreamSettings(deviceId, feature: .acc)
+                .asObservable()
+                .flatMap { [weak self] settings -> Observable<PolarAccData> in
+                    guard let self = self else { return .empty() }
+
+                    // 从 settings.settings 中挑选采样率与量程
+                    // 你的探测：sampleRate=[25,50,100,200], range=[2,4,8]
+                    let srSet: [UInt32] = Array(settings.settings[.sampleRate] ?? []).sorted()
+                    let rgSet: [UInt32] = Array(settings.settings[.range] ?? []).sorted()
+
+                    // 目标优先 50Hz、±4G；不可用时兜底为集合中的最小可用值
+                    let srChosen: UInt32 = srSet.contains(50) ? 50 : (srSet.first ?? 50)
+                    let rgChosen: UInt32 = rgSet.contains(4)  ? 4  : (rgSet.first ?? 4)
+
+                    var dict: [PolarSensorSetting.SettingType: UInt32] = [
+                        .sampleRate: srChosen,
+                        .range: rgChosen
+                    ]
+                    // 分辨率可选（你的设备返回 resolution=[16]），添加与否均可
+                    if let rsSet = settings.settings[.resolution], let rsChosen = Array(rsSet).sorted().first {
+                        dict[.resolution] = rsChosen
+                    }
+                    let chosen = PolarSensorSetting(dict)
+
+                    self.log("ACC", "start with settings: sampleRate=\(srChosen), range=±\(rgChosen)G\(dict[.resolution] != nil ? ", resolution=\(dict[.resolution]!)" : "")")
+
+                    // 2) 用选择的设置启动 ACC 流
+                    return self.api.startAccStreaming(deviceId, settings: chosen)
+                }
+                .observe(on: MainScheduler.instance)
+                .subscribe(onNext: { [weak self] acc in
+                    guard let self = self else { return }
+                    let t = Date().timeIntervalSince1970
+
+                    // PolarAccData 在 6.5.0 是数组 [(timeStamp, x, y, z)]
+                    // 将一批样本转为 [[x,y,z], ...]（单位：mG）
+                    let triples: [[Int]] = acc.map { s in [Int(s.x), Int(s.y), Int(s.z)] }
+
+                    // 控制台摘要
+                    if let first = triples.first, let last = triples.last {
+                        self.log("ACC", "batch n=\(triples.count) mG[\(first) ... \(last)]")
+                    } else {
+                        self.log("ACC", "batch n=\(triples.count)")
+                    }
+
+                    // 仅当所选集合仍包含 ACC 时才对外发送
+                    if self.activeStreams.contains(.acc) {
+                        // 组装 JSON（批量发送）
+                        // [[x,y,z],...] -> "[[x,y,z],[...]]"
+                        let body = triples.map { "[\($0[0]),\($0[1]),\($0[2])]" }.joined(separator: ",")
+                        let n = triples.count
+                        let seq = self.accSeq
+                        self.accSeq &+= 1
+
+                        UDPSenderService.shared.send(
+                            #"{"type":"acc","fs":50,"range_g":4,"n":\#(n),"seq":\#(seq),"mG":[\#(body)],"t_device":\#(t),"device":"H10"}"#
+                        )
+                        Task { @MainActor in AppStore.shared.markSent() }
+                    }
+                }, onError: { [weak self] err in
+                    self?.log("ACC", "stream error: \(err)")
+                })
+
+            log("STREAM", "ACC started (fs=50Hz, range=±4G)")
+
+        case .ppi, .ppg:
+            // Verity 相关，后续任务独立实现
+            break
+        }
+    }
+
+    /// 停止指定信号（HR/RR 走 stopHr；其余各自 dispose）
+    private func stop(kind: SignalKind) {
+        switch kind {
+        case .hr, .rr:
+            // 是否真正停掉由 applySelection 决定（当 HR 与 RR 都不需要时）
+            break
+        case .ecg:
+            ecgDisposable?.dispose(); ecgDisposable = nil
+            log("STREAM", "ECG stopped")
+        case .acc:
+            accDisposable?.dispose(); accDisposable = nil
+            log("STREAM", "ACC stopped")
+        case .ppi, .ppg:
+            break
+        }
+    }
+
+    /// 若需要 HR/RR 中任一，则确保底层 HR 订阅已建立
+    private func ensureHrStream(id: String) {
+        if hrDisposable != nil { return }
+        startHr(id: id)
+    }
+    
+    // MARK: - Settings probing for ECG/ACC
+
+    /// 把 PolarSensorSetting 的内容展开为可读字符串，便于打印核对。该函数用于判断设备是否支持期望采集精度。
+    private func describeSettings(_ settings: PolarSensorSetting) -> String {
+        // 不同 SDK 版本字段名可能略有差异，这里尽量做健壮遍历
+        var parts: [String] = []
+
+        // 尝试常见键：sampleRate / resolution / range / channels 等
+        if let sr = settings.settings[.sampleRate] {
+            parts.append("sampleRate=\(Array(sr).sorted())")
+        }
+        if let rg = settings.settings[.range] {
+            parts.append("range=\(Array(rg).sorted())")
+        }
+        if let rs = settings.settings[.resolution] {
+            parts.append("resolution=\(Array(rs).sorted())")
+        }
+        if let ch = settings.settings[.channels] {
+            parts.append("channels=\(Array(ch).sorted())")
+        }
+
+        // 兜底：打印所有键值，便于我们看到未覆盖到的字段
+        if parts.isEmpty {
+            let all = settings.settings.map { key, val in
+                "\(key)=\(Array(val).sorted())"
+            }.joined(separator: ", ")
+            return all.isEmpty ? "<empty>" : all
+        }
+        return parts.joined(separator: ", ")
+    }
+
+    /// 探测 ECG 可用设置（不启动流）
+    func probeEcgSettings(id: String) {
+        api.requestStreamSettings(id, feature: .ecg)
+            .asObservable()                               // ← 将 Single 转为 Observable
+            .observe(on: MainScheduler.instance)
+            .subscribe(onNext: { [weak self] settings in   // ← onNext/设置项类型可推断
+                guard let self = self else { return }
+                let desc = self.describeSettings(settings)
+                self.log("ECG", "available settings: \(desc)")
+                // 期望：ECG 采样率包含 130 Hz
+                self.log("ECG", "MVP default target: fs=130 Hz")
+            }, onError: { [weak self] err in
+                self?.log("ECG", "requestStreamSettings failed: \(err)")
+            })
+            .disposed(by: disposeBag)
+    }
+
+
+    /// 探测 ACC 可用设置（不启动流）
+    func probeAccSettings(id: String) {
+        api.requestStreamSettings(id, feature: .acc)
+            .asObservable()
+            .observe(on: MainScheduler.instance)
+            .subscribe(onNext: { [weak self] settings in
+                guard let self = self else { return }
+                let desc = self.describeSettings(settings)
+                self.log("ACC", "available settings: \(desc)")
+                // 期望：ACC 采样率包含 25/50/100/200 Hz，量程包含 2/4/8 G
+                self.log("ACC", "MVP default target: fs=50 Hz, range=±4G")
+            }, onError: { [weak self] err in
+                self?.log("ACC", "requestStreamSettings failed: \(err)")
+            })
+            .disposed(by: disposeBag)
+    }
+
+
+
 
     // MARK: - HR（心率）流订阅
     /// 开始订阅 HR 流（Polar 6.5：通过流 API 获取 HR 与 RR）。代码调用了 api.startHrStreaming，这个函数订阅的是 心率（HR）和 RR 间期（R-R Interval） 的数据流。
@@ -209,24 +515,39 @@ final class PolarManager: NSObject, ObservableObject {
                     // 1) 以“本批最后一个样本”的 hr 作为“当前 HR”
                     if let s = hrBatch.last {
                         self.lastHr = s.hr
-                        // 经 UDP 发送 HR（bpm）
-                        UDPSenderService.shared.send(
-                            #"{"type":"hr","bpm":\#(s.hr),"t_device":\#(t)}"#
-                        )
-                        // 1) 打印 HR，验证结果
+                        // 控制台打印（用于现场预览）
                         print(String(format: "[H10][HR] %3d bpm  t=%.3f", s.hr, t))
+
+                        // 仅按“所选即采”的 HR 开关决定是否外发
+                        if wantHR {
+                            print("[UDP][HR] bpm=\(s.hr)")
+                            UDPSenderService.shared.send(#"{"type":"hr","bpm":\#(s.hr),"t_device":\#(t)}"#)
+                            // 在主 Actor 上更新 AppStore 的计数
+                            Task { @MainActor in
+                                AppStore.shared.markSent()
+                            }
+                        }
                     }
+
 
                     // 2) 将本批所有 RR 间期（毫秒）展开发送为 IBI
                     //    注意：IBI（Inter-Beat Interval）是时域分析常用输入
                     for rr in hrBatch.flatMap({ $0.rrsMs }) {
-                        self.lastRrMs.append(rr)  // 可按需保留最近窗口；此处累积举例
-                        UDPSenderService.shared.send(
-                            #"{"type":"ibi","ms":\#(rr),"t_device":\#(t)}"#
-                        )
-                        // 1) 打印 RR，验证结果
+                        self.lastRrMs.append(rr)
+                        // 控制台打印（预览用途）
                         print(String(format: "[H10][IBI] %4d ms  t=%.3f", rr, t))
+
+                        // 仅按 RR 开关决定是否外发
+                        if wantRR {
+                            print("[UDP][RR] ms=\(rr)")
+                            UDPSenderService.shared.send(#"{"type":"rr","ms":\#(rr),"t_device":\#(t)}"#)
+                            // 在主 Actor 上更新 AppStore 的计数
+                            Task { @MainActor in
+                                AppStore.shared.markSent()
+                            }
+                        }
                     }
+
                 },
                 onError: { err in
                     print("[HR][ERROR] stream error: \(err)")
@@ -256,7 +577,7 @@ extension PolarManager: PolarBleApiObserver {
         connectingId = nil
         stopScan()                               // 连接后立即停扫以稳定链路
         log("CONNECT", "已连接: \(identifier.deviceId)")
-        startHr(id: identifier.deviceId)         // 启动 HR/RR 订阅
+        log("CONNECT", "等待采集页选择后再订阅数据流")
     }
 
     /// 已断开连接：复原状态并停止 HR 流

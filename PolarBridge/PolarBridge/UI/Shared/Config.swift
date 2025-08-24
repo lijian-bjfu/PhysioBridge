@@ -15,7 +15,7 @@ enum AppConfig {
         #if targetEnvironment(simulator)
         return "127.0.0.1"
         #else
-        return "192.168.31.22"   // ← 你的 Mac 局域网 IP
+        return "192.168.1.104"   // ← 你的 Mac 局域网 IP
         #endif
     }()
     

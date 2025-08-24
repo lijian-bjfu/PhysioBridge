@@ -38,7 +38,7 @@ enum DeviceState: String, CaseIterable, Identifiable {
 }
 
 enum DataSource: String, CaseIterable, Identifiable {
-    case ppi, ppg, hr, ecg
+    case ppi, ppg, hr, ecg, rr, acc     // ← 新增 rr、acc
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -46,7 +46,10 @@ enum DataSource: String, CaseIterable, Identifiable {
         case .ppg: return "PPG"
         case .hr:  return "HR"
         case .ecg: return "ECG"
+        case .rr:  return "RR"
+        case .acc: return "ACC"        
         }
     }
 }
+
 

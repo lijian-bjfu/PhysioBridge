@@ -1,3 +1,4 @@
+// 最早用于单独发送数据流，现在全部UDP都由UDPSenderService.swift实现，此文件弃用。
 import Foundation
 import Network
 

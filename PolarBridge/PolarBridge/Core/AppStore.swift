@@ -14,7 +14,7 @@ import Combine
 
 // ====== 采集信号的标准枚举 ======
 enum SignalKind: String, CaseIterable, Hashable, Identifiable {
-    case ppi, ppg, hr, ecg
+    case ppi, ppg, hr, ecg, rr, acc
     var id: String { rawValue }
 
     /// UI 上显示的中文名
@@ -24,6 +24,8 @@ enum SignalKind: String, CaseIterable, Hashable, Identifiable {
         case .ppg: return "PPG"
         case .hr:  return "HR"
         case .ecg: return "ECG"
+        case .rr: return "RR"
+        case .acc: return "ACC"
         }
     }
 
@@ -34,8 +36,46 @@ enum SignalKind: String, CaseIterable, Hashable, Identifiable {
         case .ppg: return "waveform.path.ecg"
         case .hr:  return "heart.fill"
         case .ecg: return "waveform"
+        case .rr: return "rhombus"
+        case .acc: return "gyroscope"
         }
     }
+    
+    // 只读元数据（单位/采样率/简介
+    var unit: String {
+        switch self {
+        case .hr:  return "bpm"
+        case .rr:  return "ms"
+        case .ecg: return "μV"
+        case .acc: return "mG"
+        case .ppi: return "ms"
+        case .ppg: return "a.u."
+        }
+    }
+    var defaultFs: Int? {
+        switch self {
+        case .ecg: return 130          // Polar H10 ECG 固定 130 Hz
+        case .acc: return 50           // MVP 先以 50 Hz 为默认
+        default:   return nil
+        }
+    }
+    var defaultRangeG: Int? {
+        switch self {
+        case .acc: return 4            // MVP 先以 ±4G 为默认
+        default:   return nil
+        }
+    }
+    var shortDesc: String {
+        switch self {
+        case .hr:  return "每秒心率"
+        case .rr:  return "相邻心搏间期"
+        case .ecg: return "心电微伏采样"
+        case .acc: return "三轴体动加速度"
+        case .ppi: return "心搏间期（相机/光电）"
+        case .ppg: return "光体积脉搏波"
+        }
+    }
+
 }
 
 
@@ -64,14 +104,15 @@ final class AppStore: ObservableObject {
     private var lastChosenH10Id: String? = nil
     
     // 是否启用内置模拟数据（先默认 true，等接入 Polar 后可关掉）
-    @Published var simulateData: Bool = true
+    @Published var simulateData: Bool = false
     // 内部记录定时器（仅在 simulateData 为 true 时启用）
     private var simTimer: Timer?
 
     // --- 发送与目标 ---
-    @Published var udpTarget = UdpTarget(host: "127.0.0.1", port: 9001)
-    // 数据发送器（用于心跳/数据流）；与“标记”分离
-    private var dataSender = UdpSender(host: "127.0.0.1", port: 9001)
+    @Published var udpTarget = UdpTarget(host: AppConfig.defaultUDPHost, port: AppConfig.defaultUDPPort)
+    private var dataSender = UdpSender(host: AppConfig.defaultUDPHost, port: UInt16(AppConfig.defaultUDPPort))
+
+    
     @Published var dataTimer: Timer?
     
     // --- 采集状态信息 ---
@@ -102,8 +143,8 @@ final class AppStore: ObservableObject {
     /// 约定：Verity -> PPI / PPG / HR，H10 -> ECG / HR
     var availableSignals: Set<SignalKind> {
         var s: Set<SignalKind> = []
-        if verityState == .connected { s.formUnion([.ppi, .ppg, .hr]) }
-        if h10State    == .connected { s.formUnion([.ecg, .hr]) }
+        if verityState == .connected { s.formUnion([.ppi, .ppg, .hr, .rr, .acc]) }
+        if h10State    == .connected { s.formUnion([.ecg, .hr, .rr, .acc]) }
         return s
     }
     /// 用户在采集页实际勾选的信号集合（由 UI 改动）
@@ -197,12 +238,22 @@ final class AppStore: ObservableObject {
     func applyTarget(host: String, port: Int) {
         let p = (1...65535).contains(port) ? port : 9001
         let h = host.trimmingCharacters(in: .whitespacesAndNewlines)
-        udpTarget = UdpTarget(host: h.isEmpty ? "127.0.0.1" : h, port: p)
+        udpTarget = UdpTarget(host: h.isEmpty ? AppConfig.defaultUDPHost : h, port: p)
         print("[AppStore] target -> \(udpTarget.address)")
-        
+
+        // ★ 新增：写回 AppStorage 对应的键
+        UserDefaults.standard.set(udpTarget.host, forKey: "udpHost")
+        UserDefaults.standard.set(udpTarget.port, forKey: "udpPort")
+
         // 同步给两路 UDP（数据/标记）
         dataSender.update(host: udpTarget.host, port: UInt16(udpTarget.port))
         UDPSenderService.shared.update(host: udpTarget.host, port: udpTarget.port)
+        
+        if let lanKey = NetworkInfo.lanKeyForMemory() {
+            let dict: [String: Any] = ["host": udpTarget.host, "port": udpTarget.port]
+            UserDefaults.standard.set(dict, forKey: "lastTarget:\(lanKey)")
+            print("[AppStore] remember target for \(lanKey) -> \(udpTarget.address)")
+        }
     }
     
 
@@ -256,6 +307,11 @@ final class AppStore: ObservableObject {
             selectedSignals.insert(kind)
         }
         print("[Store] selectedSignals=\(selectedSignals.map{$0.title}.joined(separator: ","))")
+        // 若正在采集，动态应用新的选择集合
+        if isCollecting, let id = PolarManager.shared.connectedId {
+            PolarManager.shared.applySelection(deviceId: id, kinds: selectedSignals)
+        }
+
     }
     // --- 设备卡界面信息配置 ---
     /// 点击设备卡（仅当已连接时生效）：让采集页“点亮”数据源
@@ -326,6 +382,14 @@ final class AppStore: ObservableObject {
         intervStart   = nil; intervAccum   = 0
 
         print("[Store] startCollect trial=\(trialID) subject=\(subjectID ?? "—") signals=\(selectedSignals.map{$0.title}.joined(separator: ","))")
+        
+        // 应用当前选择：所选即采
+        if let id = PolarManager.shared.connectedId {
+            PolarManager.shared.applySelection(deviceId: id, kinds: selectedSignals)
+        } else {
+            print("[Store] startCollect: 未连接设备，跳过订阅")
+        }
+
 
         // 开启 1Hz 心跳（模拟数据流）
         if dataTimer == nil {
@@ -369,6 +433,9 @@ final class AppStore: ObservableObject {
         
         // ★ 关闭内置模拟
         stopSimLoop()
+        // 停止所有订阅
+        PolarManager.shared.stopAllStreams()
+
     }
     
     // 调试页“发送一次”也走总线，保持口径一致
@@ -445,6 +512,20 @@ final class AppStore: ObservableObject {
     func elapsedIntervention(_ now: Date = Date()) -> TimeInterval {
         intervAccum + (intervStart.map { now.timeIntervalSince($0) } ?? 0)
     }
+    
+    // 供 DebugView 显示与回填 IP
+    func lastTargetForCurrentLAN() -> UdpTarget? {
+        guard let lanKey = NetworkInfo.lanKeyForMemory(),
+              let dict = UserDefaults.standard.dictionary(forKey: "lastTarget:\(lanKey)"),
+              let host = dict["host"] as? String,
+              let port = dict["port"] as? Int else { return nil }
+        return UdpTarget(host: host, port: port)
+    }
+
+    func currentLANDescription() -> String {
+        return NetworkInfo.lanDescription()
+    }
+
     
     // 当前总用时（停止后保持不变）
     func elapsedSeconds(now: Date = Date()) -> TimeInterval {

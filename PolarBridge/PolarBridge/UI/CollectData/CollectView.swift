@@ -94,8 +94,20 @@ struct CollectView: View {
                         Divider().padding(.top, 4)
                         
                         // 卡片下方增加只读“已选择”摘要
-                        let selectedTitles = store.selectedSignals.map { $0.title }.sorted().joined(separator: "、")
-                        Text(selectedTitles.isEmpty ? "未选择任何数据类型" : "已选择：\(selectedTitles)")
+                        let details = store.selectedSignals
+                            .map { kind -> String in
+                                if let fs = kind.defaultFs, let rg = kind.defaultRangeG, kind == .acc {
+                                    return "\(kind.title)（\(kind.unit)@\(fs)Hz，±\(rg)G；\(kind.shortDesc)）"
+                                } else if let fs = kind.defaultFs {
+                                    return "\(kind.title)（\(kind.unit)@\(fs)Hz；\(kind.shortDesc)）"
+                                } else {
+                                    return "\(kind.title)（\(kind.unit)；\(kind.shortDesc)）"
+                                }
+                            }
+                            .sorted()
+                            .joined(separator: "、")
+
+                        Text(details.isEmpty ? "未选择任何数据类型" : "已选择：\(details)")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }

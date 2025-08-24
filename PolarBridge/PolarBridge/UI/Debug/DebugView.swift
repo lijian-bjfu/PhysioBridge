@@ -20,6 +20,9 @@ struct DebugView: View {
     @AppStorage("udpPort") private var udpPort: Int = 9001
 
     @StateObject private var store = AppStore.shared
+    
+    private enum FocusField { case host, port }
+    @FocusState private var focusField: FocusField?
 
     var body: some View {
         NavigationView {
@@ -48,14 +51,21 @@ struct DebugView: View {
                     TextField("Host (IPv4 或 主机名)", text: $udpHost)
                         .textContentType(.URL)
                         .keyboardType(.numbersAndPunctuation)
+                        .focused($focusField, equals: .host)
+                        .submitLabel(.done)
+                        .onSubmit { focusField = nil }   // 点键盘的“完成”可收起
 
                     TextField("Port", value: $udpPort, formatter: portFormatter)
                         .keyboardType(.numberPad)
+                        .focused($focusField, equals: .port)
+                        .submitLabel(.done)
+                        .onSubmit { focusField = nil }
 
                     Button("应用设置") {
                         let p = UInt16(clamping: udpPort)
                         print("APPLY host=\(udpHost) port=\(p)")
                         store.applyTarget(host: udpHost, port: Int(p))
+                        focusField = nil                 // 点“应用设置”也顺便收起键盘
                     }
                 }
                 
@@ -110,6 +120,12 @@ struct DebugView: View {
                     Button("刺激结束") { store.emitMarker(.stim_end) }
                     Button("干预开始") { store.emitMarker(.intervention_start) }
                     Button("干预结束") { store.emitMarker(.intervention_end)}
+                }
+            }
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("完成") { focusField = nil }   // 收起键盘
                 }
             }
             .navigationTitle("调试工具")
