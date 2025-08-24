@@ -1,0 +1,7 @@
+CSV 目录: /Users/lijian/Desktop/GitHub/polar_bridge/RecordedData/sub-P001/ses-S002/eeg
+
+ECG: 无数据
+
+HR vs RR: 数据不足
+
+EVENT：无标记或缺列，跳过。

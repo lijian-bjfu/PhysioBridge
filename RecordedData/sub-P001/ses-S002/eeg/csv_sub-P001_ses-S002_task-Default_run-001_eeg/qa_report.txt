@@ -1,0 +1,14 @@
+CSV 目录: /Users/lijian/Desktop/GitHub/polar_bridge/RecordedData/sub-P001/ses-S002/eeg/csv_sub-P001_ses-S002_task-Default_run-001_eeg
+
+ECG: n=3942, 时长=30.236s, fs=130.0
+  采样完整性: 1.0029  [PASS]
+  时间一致性: Δt_mean=0.007964s, Δt_std=0.003946s, ideal=0.007692s, 偏差=3.53%  [WARN]
+  序号单调性: 回退=0, 跳号=0
+
+HR vs RR: 平均误差=+1.18 bpm, MAE=2.25 bpm  [WARN]
+
+EVENT 烟雾测试（窗口：前2~5s 与 后2~5s）：
+  - baseline_start: HR N/A ; ECG N/A
+  - stim_start: HR 64.00/64.00/Δ+0.00 bpm ; |ECG| 112.86/77.35/Δ-35.51 uV
+  - stim_end: HR 64.00/63.67/Δ-0.33 bpm ; |ECG| 90.93/77.86/Δ-13.07 uV
+  - intervention_start: HR 64.00/62.67/Δ-1.33 bpm ; |ECG| 79.57/76.26/Δ-3.31 uV
