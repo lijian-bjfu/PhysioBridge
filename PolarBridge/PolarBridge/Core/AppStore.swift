@@ -185,6 +185,8 @@ final class AppStore: ObservableObject {
     private init() {
         // 启动时就建立与 PolarManager 的绑定
         bindPolar()
+        // 确保 MarkerBus → UDP 的桥在应用期内一直存活
+        _ = UdpMarkerBridge.shared
     }
     
     // 将 PolarManager 的事件映射到 h10State
@@ -253,6 +255,39 @@ final class AppStore: ObservableObject {
             let dict: [String: Any] = ["host": udpTarget.host, "port": udpTarget.port]
             UserDefaults.standard.set(dict, forKey: "lastTarget:\(lanKey)")
             print("[AppStore] remember target for \(lanKey) -> \(udpTarget.address)")
+        }
+    }
+    
+    // 广播受试者信息
+    func applyParticipant(pid: String, sessionID: String, broadcast: Bool = true) {
+        let pidTrim = pid.trimmingCharacters(in: .whitespacesAndNewlines)
+        let sidTrim = sessionID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !pidTrim.isEmpty, !sidTrim.isEmpty else {
+            print("[AppStore] applyParticipant: empty pid or session, skip")
+            return
+        }
+
+        print("[AppStore] participant -> pid=\(pidTrim) session=\(sidTrim)")
+
+        // 本地立即广播（不依赖开始采集），便于在 LabRecorder 中作为会话开端标注
+        guard broadcast else { return }
+
+        // 1) session_meta
+        let now = Date().timeIntervalSince1970
+        let meta = SessionMetaPacket(device: "app",
+                                     t_device: now,
+                                     seq: nil,
+                                     pid: pidTrim,
+                                     session: sidTrim)
+        if let s = TelemetryEncoder.encodeToJSONString(meta) {
+            UDPSenderService.shared.send(s)
+        }
+
+        // 2) marker（清晰地写入标注流）
+        let label = "session_update: pid=\(pidTrim), session=\(sidTrim)"
+        let marker = MarkerPacket(device: "app", t_device: now, seq: nil, label: label)
+        if let s2 = TelemetryEncoder.encodeToJSONString(marker) {
+            UDPSenderService.shared.send(s2)
         }
     }
     
@@ -389,26 +424,6 @@ final class AppStore: ObservableObject {
         } else {
             print("[Store] startCollect: 未连接设备，跳过订阅")
         }
-
-
-        // 开启 1Hz 心跳（模拟数据流）
-        if dataTimer == nil {
-            let t = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-                // ★ 在闭包里切回主线程，再访问 AppStore（@MainActor）
-                Task { @MainActor in
-                    guard let self = self, self.isCollecting else { return }
-                    let ts = Date().timeIntervalSince1970
-                    let msg = #"{"type":"heartbeat","t":\#(ts)}"#
-                    self.dataSender.send(msg)
-                    self.markSent()
-                }
-            }
-            RunLoop.main.add(t, forMode: .common)
-            dataTimer = t
-            print("[Store] dataTimer scheduled -> \(Unmanaged.passUnretained(t).toOpaque())")
-        }
-        // 启动内置模拟数据（仅在开关为 true 时）
-        if simulateData { startSimLoop() }
     }
 
     func stopCollect() {
@@ -532,25 +547,6 @@ final class AppStore: ObservableObject {
         guard let start = sessionStart else { return 0 }
         let end = isCollecting ? now : (sessionStop ?? now)
         return end.timeIntervalSince(start)
-    }
-    
-    // === 两个私有方法：启动/停止模拟收集过程的循环 ===
-    private func startSimLoop() {
-        guard simTimer == nil else { return }
-        let t = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
-            let ts = Date().timeIntervalSince1970
-            let payload = #"{"type":"heartbeat","t":\#(ts)}"#
-            // 统一通过 UDPSenderService 发
-            UDPSenderService.shared.send(payload)
-            // 更新全局计数（采集状态 A 区会联动）
-            Task { @MainActor in
-                self.markSent()
-            }
-        }
-        RunLoop.main.add(t, forMode: .common)
-        simTimer = t
-        print("[Store] simLoop started")
     }
 
     private func stopSimLoop() {

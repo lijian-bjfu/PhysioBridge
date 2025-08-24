@@ -18,10 +18,23 @@ struct HomeView: View {
     @AppStorage("udpHost") private var udpHost: String = AppConfig.defaultUDPHost
     @AppStorage("udpPort") private var udpPort: Int    = AppConfig.defaultUDPPort
     
-    // 用于设置修改UDP的键盘：弹窗与临时输入
-    @State private var showUdpSheet = false
-    @State private var tmpHost: String = ""
-    @State private var tmpPort: Int = AppConfig.defaultUDPPort
+    // 受试者与会话编号的本地持久化
+    @AppStorage("participantID") private var participantID: String = ""
+    @AppStorage("sessionID")     private var sessionID: String = ""
+    
+    // 统一弹窗类型
+    private enum ActiveModal: String, Identifiable {
+        case udp, subject
+        var id: String { rawValue }
+    }
+
+    // 当前激活弹窗；nil 表示无弹窗
+    @State private var activeModal: ActiveModal? = nil
+
+    
+    // 受试者信息记录页面键盘管理
+    @FocusState private var subjectFocus: SubjectField?
+    private enum SubjectField { case pid, sid }
 
     // 用于设置修改UDP的键盘：键盘焦点
     @FocusState private var udpFocus: UdpFocusField?
@@ -46,9 +59,7 @@ struct HomeView: View {
 
                             Button {
                                 // 进入编辑弹窗时，带入当前值
-                                tmpHost = udpHost
-                                tmpPort = udpPort
-                                showUdpSheet = true
+                                activeModal = .udp
                             } label: {
                                 Text("设置")
                                     .font(.headline)
@@ -95,12 +106,14 @@ struct HomeView: View {
 
                         TaskRow(
                             title: "受试者信息",
-                            subtitle: "记录被测基本信息",
-                            enabled: true
-                        ) {
-                            // 先放一个占位页面
-                            Text("受试者信息（占位）").padding()
-                        }
+                            subtitle: participantID.isEmpty && sessionID.isEmpty
+                                ? "记录被测基本信息"
+                                : "PID: \(participantID) · SESSION: \(sessionID)",
+                            enabled: true,
+                            action: {
+                                activeModal = .subject
+                            }
+                        )
 
                         Divider()
 
@@ -143,60 +156,39 @@ struct HomeView: View {
                 .padding(.vertical, 16)
             }
             // 设置UDP的弹窗
-            .sheet(isPresented: $showUdpSheet) {
-                NavigationView {
-                    Form {
-                        Section("UDP 目标") {
-                            TextField("Host (IPv4 或 主机名)", text: $tmpHost)
-                                .textContentType(.URL)
-                                .keyboardType(.numbersAndPunctuation)
-                                .focused($udpFocus, equals: .host)
-                                .submitLabel(.done)
-                                .onSubmit { udpFocus = nil }
-
-                            TextField("Port", value: $tmpPort, formatter: homePortFormatter)
-                                .keyboardType(.numberPad)
-                                .focused($udpFocus, equals: .port)
-                                .submitLabel(.done)
-                                .onSubmit { udpFocus = nil }
+            .sheet(item: $activeModal) { modal in
+                switch modal {
+                case .udp:
+                    UdpSettingsSheetView(
+                        initialHost: udpHost,
+                        initialPort: udpPort,
+                        onCancel: { activeModal = nil },
+                        onConfirm: { host, port in
+                            AppStore.shared.applyTarget(host: host, port: port)
+                            // AppStorage 会被 applyTarget 写回，HomeView 顶部“当前 UDP 目标地址”自动更新
+                            activeModal = nil
                         }
+                    )
 
-                        Section {
-                            HStack {
-                                Button("取消") {
-                                    udpFocus = nil
-                                    showUdpSheet = false
-                                }
-                                .buttonStyle(.bordered)
-
-                                Spacer()
-
-                                Button("确 定") {
-                                    udpFocus = nil
-                                    // 统一走 AppStore 单一入口：会同时更新两路 UDP，并写回 AppStorage
-                                    AppStore.shared.applyTarget(host: tmpHost, port: tmpPort)
-                                    // AppStorage 刷新后，首页“当前 UDP 目标地址：”会自动更新
-                                    showUdpSheet = false
-                                }
-                                .buttonStyle(.borderedProminent)
+                case .subject:
+                    SubjectInfoSheetView(
+                        initialPID: participantID,
+                        initialSID: sessionID,
+                        onCancel: { activeModal = nil },
+                        onConfirm: { pid, sid in
+                            // 写回持久化，并广播到 LSL（session_meta + marker）
+                            @MainActor func apply() {
+                                participantID = pid
+                                sessionID = sid
+                                AppStore.shared.applyParticipant(pid: pid, sessionID: sid)
+                                activeModal = nil
                             }
+                            if Thread.isMainThread { apply() } else { DispatchQueue.main.async { apply() } }
                         }
-                    }
-                    .navigationTitle("设置 UDP")
-                    .navigationBarTitleDisplayMode(.inline)
-                    // 键盘工具栏“完成”
-                    .toolbar {
-                        // 导航栏右侧提供“完成”，用于收起键盘（替代键盘工具栏）
-                        ToolbarItemGroup(placement: .navigationBarTrailing) {
-                            //Spacer()
-                            Button("完成") { udpFocus = nil }
-                        }
-                    }
+                    )
                 }
-                // 设定弹窗尺寸与拖拽指示，避免显示期的布局抖动
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
             }
+
             // HomeView整体页面的导航栏
             .navigationTitle("生理信号记录")
             .navigationBarTitleDisplayMode(.inline)

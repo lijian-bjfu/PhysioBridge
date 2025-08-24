@@ -68,11 +68,6 @@ struct DebugView: View {
                         focusField = nil                 // 点“应用设置”也顺便收起键盘
                     }
                 }
-                
-                // 使用内置模拟心跳”的开关
-                Section("调试选项") {
-                    Toggle("使用内置模拟心跳（临时）", isOn: $store.simulateData)
-                }
 
                 // 连续发送控制
                 Section("连续发送") {

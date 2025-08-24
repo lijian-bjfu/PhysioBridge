@@ -79,6 +79,23 @@ final class PolarManager: NSObject, ObservableObject {
     // 批次序号：用于 QA（检测丢批、重排）
     private var ecgSeq: UInt64 = 0
     private var accSeq: UInt64 = 0
+    
+    // MARK: - 信号发送小助手
+    // 每个流的序号计数器
+    private var seqHR:  UInt64 = 0
+    private var seqRR:  UInt64 = 0
+    private var seqECG: UInt64 = 0
+    private var seqACC: UInt64 = 0
+
+    // 设备名占位（当前固定 H10；后续可根据连接的名称解析）
+    private let deviceName = TelemetrySpec.deviceNameH10
+
+    // 统一的 JSON 发送助手
+    private func sendPacket<T: Encodable>(_ packet: T) {
+        if let json = TelemetryEncoder.encodeToJSONString(packet) {
+            UDPSenderService.shared.send(json)
+        }
+    }
 
     // MARK: - 初始化与观察者挂载
     override init() {
@@ -300,27 +317,25 @@ final class PolarManager: NSObject, ObservableObject {
                     guard let self = self else { return }
                     let t = Date().timeIntervalSince1970
 
+                    let fs = 130
                     // PolarEcgData 在 6.5.0 是数组 [(timeStamp, voltage)]
                     let uV: [Int] = ecg.map { Int($0.voltage) }
-
-                    // 控制台摘要
-                    if let first = uV.first, let last = uV.last {
-                        self.log("ECG", "batch n=\(uV.count) uV[\(first)...\(last)]")
-                    } else {
-                        self.log("ECG", "batch n=\(uV.count)")
-                    }
-
-                    // 仅当所选集合仍包含 ECG 时才对外发送
+                    
+                    // 仅当仍选择了 ECG 时才外发
                     if self.activeStreams.contains(.ecg) {
-                        let arr = uV.map(String.init).joined(separator: ",")
-                        let n = uV.count
-                        let seq = self.ecgSeq
-                        // &+= 是 Swift 的“溢出运算”自增，避免极端长时间运行时的 trap
-                        self.ecgSeq &+= 1
-
-                        UDPSenderService.shared.send(
-                            #"{"type":"ecg","fs":130,"n":\#(n),"seq":\#(seq),"uV":[\#(arr)],"t_device":\#(t),"device":"H10"}"#
-                        )
+                        self.seqECG &+= 1
+                        let pkt = ECGPacket(device: self.deviceName,
+                                            t_device: t,
+                                            seq: self.seqECG,
+                                            fs: fs,
+                                            uV: uV,
+                                            n: uV.count)
+                        self.sendPacket(pkt)
+                        if let first = uV.first, let last = uV.last {
+                            self.log("ECG", "batch n=\(uV.count) uV[\(first)...\(last)]")
+                        } else {
+                            self.log("ECG", "batch n=\(uV.count)")
+                        }
                         Task { @MainActor in AppStore.shared.markSent() }
                     }
                 }, onError: { [weak self] err in
@@ -371,25 +386,25 @@ final class PolarManager: NSObject, ObservableObject {
                     // 将一批样本转为 [[x,y,z], ...]（单位：mG）
                     let triples: [[Int]] = acc.map { s in [Int(s.x), Int(s.y), Int(s.z)] }
 
-                    // 控制台摘要
-                    if let first = triples.first, let last = triples.last {
-                        self.log("ACC", "batch n=\(triples.count) mG[\(first) ... \(last)]")
-                    } else {
-                        self.log("ACC", "batch n=\(triples.count)")
-                    }
-
-                    // 仅当所选集合仍包含 ACC 时才对外发送
+                    // 仅当仍选择了 ACC 时才外发
                     if self.activeStreams.contains(.acc) {
-                        // 组装 JSON（批量发送）
-                        // [[x,y,z],...] -> "[[x,y,z],[...]]"
-                        let body = triples.map { "[\($0[0]),\($0[1]),\($0[2])]" }.joined(separator: ",")
-                        let n = triples.count
-                        let seq = self.accSeq
-                        self.accSeq &+= 1
-
-                        UDPSenderService.shared.send(
-                            #"{"type":"acc","fs":50,"range_g":4,"n":\#(n),"seq":\#(seq),"mG":[\#(body)],"t_device":\#(t),"device":"H10"}"#
-                        )
+                        self.seqACC &+= 1
+                        // fs、range_g 请用你前面选择到的值；若已有变量，直接代入
+                        let fs = 50
+                        let rangeG = 4
+                        let pkt = ACCPacket(device: self.deviceName,
+                                            t_device: t,
+                                            seq: self.seqACC,
+                                            fs: fs,
+                                            mG: triples,
+                                            n: triples.count,
+                                            range_g: rangeG)
+                        self.sendPacket(pkt)
+                        if let first = triples.first, let last = triples.last {
+                            self.log("ACC", "batch n=\(triples.count) mG[\(first) ... \(last)]")
+                        } else {
+                            self.log("ACC", "batch n=\(triples.count)")
+                        }
                         Task { @MainActor in AppStore.shared.markSent() }
                     }
                 }, onError: { [weak self] err in
@@ -513,41 +528,26 @@ final class PolarManager: NSObject, ObservableObject {
                     let t = Date().timeIntervalSince1970
 
                     // 1) 以“本批最后一个样本”的 hr 作为“当前 HR”
-                    if let s = hrBatch.last {
+                    // 仅当用户选择了hr数据时才发
+                    if let s = hrBatch.last, wantHR {
                         self.lastHr = s.hr
-                        // 控制台打印（用于现场预览）
-                        print(String(format: "[H10][HR] %3d bpm  t=%.3f", s.hr, t))
-
-                        // 仅按“所选即采”的 HR 开关决定是否外发
-                        if wantHR {
-                            print("[UDP][HR] bpm=\(s.hr)")
-                            UDPSenderService.shared.send(#"{"type":"hr","bpm":\#(s.hr),"t_device":\#(t)}"#)
-                            // 在主 Actor 上更新 AppStore 的计数
-                            Task { @MainActor in
-                                AppStore.shared.markSent()
-                            }
-                        }
+                        self.seqHR &+= 1
+                        let p = HRPacket(device: self.deviceName, t_device: t, seq: self.seqHR, bpm: Int(s.hr))
+                        self.sendPacket(p)
+                        Task { @MainActor in AppStore.shared.markSent() }
                     }
-
-
                     // 2) 将本批所有 RR 间期（毫秒）展开发送为 IBI
-                    //    注意：IBI（Inter-Beat Interval）是时域分析常用输入
-                    for rr in hrBatch.flatMap({ $0.rrsMs }) {
-                        self.lastRrMs.append(rr)
-                        // 控制台打印（预览用途）
-                        print(String(format: "[H10][IBI] %4d ms  t=%.3f", rr, t))
-
-                        // 仅按 RR 开关决定是否外发
-                        if wantRR {
+                    // 仅当用户选择了rr数据才发
+                    if wantRR {
+                        for rr in hrBatch.flatMap({ $0.rrsMs }) {
+                            self.lastRrMs.append(rr)
+                            self.seqRR &+= 1
+                            let prr = RRPacket(device: self.deviceName, t_device: t, seq: self.seqRR, ms: rr)
+                            self.sendPacket(prr)
                             print("[UDP][RR] ms=\(rr)")
-                            UDPSenderService.shared.send(#"{"type":"rr","ms":\#(rr),"t_device":\#(t)}"#)
-                            // 在主 Actor 上更新 AppStore 的计数
-                            Task { @MainActor in
-                                AppStore.shared.markSent()
-                            }
+                            Task { @MainActor in AppStore.shared.markSent() }
                         }
                     }
-
                 },
                 onError: { err in
                     print("[HR][ERROR] stream error: \(err)")
