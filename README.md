@@ -1,14 +1,12 @@
 ## Polar Bridge
 
-  
+在单一实验环境下，将 Polar H10 等生理传感器的实时数据通过手机端（iOS）采集，经局域网 UDP（User Datagram Protocol，用户数据报协议）发送至上位机，即电脑端，由桥接器（以py脚本的方式实现）转换为 LSL（Lab Streaming Layer，实验室流层）数据流，最终用 LabRecorder 录制为 XDF（Extensible Data Format，可扩展数据格式）文件，供后续统计分析与可视化使用。
 
-在单一实验环境下，将 Polar H10 等生理传感器的实时数据通过手机端（iOS）采集，经局域网 UDP（User Datagram Protocol，用户数据报协议）发送至上位机，由桥接脚本转换为 LSL（Lab Streaming Layer，实验室流层）数据流，最终用 LabRecorder 录制为 XDF（Extensible Data Format，可扩展数据格式）文件，供后续统计分析与可视化使用。
+本项目的目标场景是心理与人机实验中的多模态生理信号采集与对齐：例如在“基线/诱导/干预”三阶段范式里，同时记录Polar设备，如Verity Senser、H10等提供的心率（HR）、心搏间期（RR）、心电图（ECG）、PPI、PPG与三轴加速度（ACC），配合实验标记（Markers）保证后续分段与统计检验的可重复性。
 
-  
+整体的工作流程可分三大部分。（1）数据采集。（2）建立UDP通道并发送数据。（3）接受数据并在LSL中同步记录数据。本项目中，数据采集由Polar设备执行。项目开发的App负责提取这些数据、与UDP连接与发送的工作。在电脑端运行的py脚本负责LSL环节的工作。其原理是Polar捕获到生理信号后，由App将这些数据拿到手。App接着主动地找到用于保存数据的电脑所载的位置，也就是负责记录数据的电脑的网络地址，这就是所谓的“UDP目标”。然后向该地址发送数据。电脑则负责监听本地网络环境是否有信号传过来，不论什么信号、多少信号会全部接受，并通过LSL技术同步把这些信号记录下来。
 
-本项目的目标场景是心理与人机实验中的多模态生理信号采集与对齐：例如在“基线/诱导/干预”三阶段范式里，同时记录心率（HR）、心搏间期（RR）、心电图（ECG）与三轴加速度（ACC），配合实验标记（Markers）保证后续分段与统计检验的可重复性。
-
-  
+整体链路为：Polar 测量心率数据 → iPhone App获取数据 → UDP 发包 → 局域网 → 桥接器/`udp_to_lsl.py`（Mac） → 在本机发布两路 LSL → LabRecorder 发现并录制 → `.xdf` 文件 →  `.csv` 文件
 
 ## 目录
 
@@ -126,15 +124,32 @@ LabRecorder → XDF
   ├─ CSV 导出
   └─ 可视化与标记叠加
 ```
-  
+
+### IOS 部分
+
+采集工作包含两个不同性质的数据采集流程。第一是采集生理数据本身，即“数据流”。第二是研究者根据实验阶段对数据的标记，如基线、诱导和干预的时间点，用于后续分析中的”锁时“，这个流程定义为“控制流”。两个采集都会执行向UDP发送数据并在UDP所在的局域网进行广播，并由LSL接受广播并记录广播内容（即数据）的流程。只不过“数据流”的广播内容是生理信号，“控制流”的广播内容是时间标记。
+
+### 系统机制
+
+最高层的命令的来自用户，用户选择要连接的Polar设备、需要的数据、对数据进行标注等操作，这些行为涉及了各种系统功能，所有这些功能都由`AppStore.swift`（简称 AS）进行调度和管理。在数据采集方面，获取Polar 设备探测的生理数据主要依赖 Polar SDK。在 IOS 系统中使用`PolarManager.swift`（简称 PM）管理和执行与此相关的任务，包括：扫描(`startScan`)，连接(`connect`) polar 设备，探测可订阅数据(`describeSettings`)，订阅数据(`startHr`)等核心任务流程。发送数据的工作则主要由`UDPSenderService`（简称 UDPSS) 执行，具有使用`recreateConnection()`连接目标地址，使用`send()`来发送数据等功能。整个App主要包含两个界面：主界面`HomeView`，采集页面`CollectView` 。它们负责接受用户的输入，将用户需求转达AS (或其他功能模块)，以及向用户显示交互反馈。
+
+App ~={green}首页`HomeView` （简称 HV ）打开后，立即告诉 PM 扫描设备=~。~={cyan}AS 则在初始化时=~就检测 PM 是否扫描到可用设备，以及与可用设备的连接状态。如果连接上，立即把连接状态记录到系统中，供其他功能或页面在需要时查阅。根据 AS 的记录 HV 将可用的设备显示在界面上，等待用户确认连接。用户点击后，AS 命令 PM 启动连接 (`connect()`) 设备，PM 随后通过 Polar SDK 进行连接，并获得设备 ID。AS 根据 PM 的 设备ID 信息的变化来识别连接状态，一旦确认连接后，立即更新连接记录数据。
+
+设备连接为后续一系列任务铺平道路。首先，HV 可以在界面上向用户报告设备已经连接就绪，暗示用户可以进行下一步操作了。其次，AS 可以明确哪些生理信号可以获取了。比如连接到 H10，可以获取 ecg, hr, rr 等数据，连接到 Verity 则可以获取 ppi, ppg, hr 等数据。这是依靠 PM 的 `probeCapabilities()` 来实现的。PM 会将识别到的可以订阅的数据类型信息保存在 `availableSignals`变量中。再次，`CollectView`（简称 CV） 根据 `availableSignals` 是否有数据，以及有什么数据，可以把这些数据呈现在自己界面的"选择数据"卡片中，让用户进行下一步选择操作。
+
+考虑到实验的灵活性，App允许用户可以从 Polar 设备所提供的数据中自主选择想要的数据。这标表示系统要识别出用户在`availableSignals`选择了哪个数据。CV 把用户的选择结果报告给 AS ，AS 使用 `selectedSignals` 来记录用户感兴趣的数据。同时把`selectedSignals`的信息传递给 PM，让它使用 `applySelection()` 根据用户选择**分别**启动或停止各条 Polar 流（ECG/ACC/HR/RR），每条流独立封装为对应的 JSON 类型（如 `"type":"ecg"` / `"acc"` / `"hr"` / `"rr"`），并启动 `start()`开始订阅数据。以获取 ecg 信息为例，PM 的 `start()` 首先开启 Polar SDK 的 `startEcgStreaming`服务，然后将 SDK 给的数据打包 `sendPacket`，并传给 UDPSS。在技术细节上，由于 SDK 给的 hr, rr 在一个数据，单独建立一个 `startHR()` 方法来获取这些数据，处理方法与ecg 有些不同，但也是在`start()`中来执行。
+
+除了Polar 的生理信号，记录促发这些生理信号的事件“时间点”也非常重要，这体现为用户（也就是实验员）的为数据“打时间标记”操作上，即“控制流”数据。该流程从 CV 发起。AS 接收到 CV 消息后开始执行向 UDP 发送标记信息任务（`emitMarker`）。这个任务要经过三道手。首先是 `MarkerBus` 第一手，它把Mark建构为一个结构化的数据（叫做 marker event ），为Marker添加各中必要的属性。第二道手是 `UDPMarkerBridge`，它进一步对marker数据封装，把数据封装为始于UDP渠道流通的样式（为了让 `UDPMarkerBridge` 始终在线，AS 开始的时候就要初始化 `UDPMarkerBridge`）。接下来才是由UDPSS 负责把信息发送到UDP目标地址。而第一、二两道手还依赖一个IOS提供的底层机制`PassthroughSubject` ，它是那个“事件总线--bus ”或“广播喇叭”的实体。
+
+接下来的环节就是要通过UDP协议把数据传输到电脑端了。UDP需要一系列的任务环节，包括定位UDP发送地址、连接目标地址、向地址发送信号等工作。首先是UDP地址的定位。这个位置实际上是电脑的网络IP。技术上是可以让App自动获取处于同一网络下电脑的位置的，但是这个过程并没有那么容易实现（我没做出来）。因此，退而求其次，目前的方法是让用户自己查找电脑端的IP地址与端口，并通过 HV 界面输入到App中。AS 告诉 UDPSS UDP的目标地址和端口是什么，UDPSS 根据 AS 的消息来更新（`update(host)`）所要发送的目的地信息。总体上，UDP 任务在 AS 的统一指挥下执行，例如指挥 PM 使用 UDPSS 来向UDP发送生理数据，或者指挥打标记工具(`UdpMarkerBridge`)调用 UDPSS 向 UDP 发送打标记信息。
+
+以上是对app的系统机制的综合描述。
 
 ## 数据与时间同步
 
 - 手机端每条消息携带 `t_device`（iPhone 当前 `Date().timeIntervalSince1970` 近似）。这一字段**不参与** LSL 锁时，仅用于排查与回放。
     
 - 真实的跨设备锁时由 LSL 负责：每条流在 Outlet 端被赋予统一的 LSL 时间戳，Inlet/Recorder 端对时并做缓冲对齐。当有多个设备或多台主机参与时，**尽量让所有数据源都以 LSL 流进入 LabRecorder**，可获得最稳健的时钟对齐。关于 LSL 的 Outlet/Inlet、时间基准与 `push_sample/pull_sample` 可参考官方用户向导与教程。
-
-  
 
 ## 支持的设备与数据流
 

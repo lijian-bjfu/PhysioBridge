@@ -235,28 +235,6 @@ final class AppStore: ObservableObject {
             }
             .store(in: &cancellables)
     }
-
-    // 改目标（做简单校验）
-    func applyTarget(host: String, port: Int) {
-        let p = (1...65535).contains(port) ? port : 9001
-        let h = host.trimmingCharacters(in: .whitespacesAndNewlines)
-        udpTarget = UdpTarget(host: h.isEmpty ? AppConfig.defaultUDPHost : h, port: p)
-        print("[AppStore] target -> \(udpTarget.address)")
-
-        // ★ 新增：写回 AppStorage 对应的键
-        UserDefaults.standard.set(udpTarget.host, forKey: "udpHost")
-        UserDefaults.standard.set(udpTarget.port, forKey: "udpPort")
-
-        // 同步给两路 UDP（数据/标记）
-        dataSender.update(host: udpTarget.host, port: UInt16(udpTarget.port))
-        UDPSenderService.shared.update(host: udpTarget.host, port: udpTarget.port)
-        
-        if let lanKey = NetworkInfo.lanKeyForMemory() {
-            let dict: [String: Any] = ["host": udpTarget.host, "port": udpTarget.port]
-            UserDefaults.standard.set(dict, forKey: "lastTarget:\(lanKey)")
-            print("[AppStore] remember target for \(lanKey) -> \(udpTarget.address)")
-        }
-    }
     
     // 广播受试者信息
     func applyParticipant(pid: String, sessionID: String, broadcast: Bool = true) {
@@ -291,9 +269,30 @@ final class AppStore: ObservableObject {
         }
     }
     
-
     // --- UDP 全局信号处理 ---
-    /// 标记UDP开始/停止/成功发送/错误
+    // 更新UDP目标
+    func applyTarget(host: String, port: Int) {
+        let p = (1...65535).contains(port) ? port : 9001
+        let h = host.trimmingCharacters(in: .whitespacesAndNewlines)
+        udpTarget = UdpTarget(host: h.isEmpty ? AppConfig.defaultUDPHost : h, port: p)
+        print("[AppStore] target -> \(udpTarget.address)")
+
+        // ★ 新增：写回 AppStorage 对应的键
+        UserDefaults.standard.set(udpTarget.host, forKey: "udpHost")
+        UserDefaults.standard.set(udpTarget.port, forKey: "udpPort")
+
+        // 同步给两路 UDP（数据/标记）
+        dataSender.update(host: udpTarget.host, port: UInt16(udpTarget.port))
+        UDPSenderService.shared.update(host: udpTarget.host, port: udpTarget.port)
+        
+        if let lanKey = NetworkInfo.lanKeyForMemory() {
+            let dict: [String: Any] = ["host": udpTarget.host, "port": udpTarget.port]
+            UserDefaults.standard.set(dict, forKey: "lastTarget:\(lanKey)")
+            print("[AppStore] remember target for \(lanKey) -> \(udpTarget.address)")
+        }
+    }
+    
+    // --- “标注”数据发送 ---
     func markStarted() {
         if !isCollecting { isCollecting = true }
         print("[AppStore] 收集数据 -> true")

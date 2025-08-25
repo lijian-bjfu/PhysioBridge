@@ -17,13 +17,18 @@ plot_check_csv_validity_lite.py  (v3, robust filename & delimiter & columns dete
 """
 
 from __future__ import annotations
-import os, sys, csv, math, argparse, traceback
+import sys
+import csv
+import math
+import argparse
+import traceback
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Optional
 
 import numpy as np
 
 import matplotlib
+# 非交互后端 Agg，这个后端只允许保存 PNG，不会弹窗
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 

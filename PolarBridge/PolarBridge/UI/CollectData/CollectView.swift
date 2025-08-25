@@ -61,8 +61,6 @@ struct CollectView: View {
                 SectionHeader("选择数据")
                 Card {
                     // 可用信号集（由 AppStore 推导）
-                    //let available = Array(store.availableSignals).sorted { $0.rawValue < $1.rawValue } // CHANGED
-                    // 更简单的版本
                     let available = availableSorted
 
                     if available.isEmpty {

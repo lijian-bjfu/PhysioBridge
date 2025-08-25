@@ -127,7 +127,7 @@ final class PolarManager: NSObject, ObservableObject {
         hrDisposable?.dispose()
     }
 
-    // MARK: - 扫描（仅按名称前缀过滤；UI 层展示列表以供选择）
+    // MARK: - 扫描sh（仅按名称前缀过滤；UI 层展示列表以供选择）
     /// 开始扫描（可按名称前缀过滤，一般使用 "Polar"）。代码可以扫描周围的蓝牙设备，筛选出设备名以 "Polar" 开头的设备（这是默认设置，可以修改）。所有发现的设备信息（ID, 名称, 信号强度等）会存储在 discovered 数组中，这个数组通过 @Published 标记，意味着它可以直接用于在 SwiftUI 界面上展示一个设备列表。
     func startScan(prefix: String? = "Polar") {
         guard scanDisposable == nil else { return }
@@ -515,7 +515,7 @@ final class PolarManager: NSObject, ObservableObject {
     /// 开始订阅 HR 流（Polar 6.5：通过流 API 获取 HR 与 RR）。代码调用了 api.startHrStreaming，这个函数订阅的是 心率（HR）和 RR 间期（R-R Interval） 的数据流。
     /// 心率 (HR): lastHr 属性会实时更新为设备传来的一批数据中最新的心率值（单位是 BPM，每分钟心跳次数）。
     /// RR 间期 (RRi): 这是连续两次心跳（R波）之间的时间间隔，单位是毫秒（ms）。代码会获取到每一批数据中所有的 RR 间期值。
-    /// 数据发送: 代码在收到数据后，会通过一个名为 UDPSenderService 的服务，将 HR 和 RR 数据打包成 JSON 格式，并通过 UDP 协议发送出去。这通常用于将数据实时传输到另一台设备或服务器进行分析。
+    /// 数据发送: 代码在收到数据后，会通过 UDPSenderService 的服务，将 HR 和 RR 数据打包成 JSON 格式，并通过 UDP 协议发送出去。这通常用于将数据实时传输到另一台设备或服务器进行分析。
     func startHr(id: String) {
         // 重启前清理旧订阅，避免重复回调
         hrDisposable?.dispose()
