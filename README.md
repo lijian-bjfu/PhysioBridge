@@ -131,9 +131,9 @@ LabRecorder → XDF
 
 ### 系统机制
 
-最高层的命令的来自用户，用户选择要连接的Polar设备、需要的数据、对数据进行标注等操作，这些行为涉及了各种系统功能，所有这些功能都由`AppStore.swift`（简称 AS）进行调度和管理。在数据采集方面，获取Polar 设备探测的生理数据主要依赖 Polar SDK。在 IOS 系统中使用`PolarManager.swift`（简称 PM）管理和执行与此相关的任务，包括：扫描(`startScan`)，连接(`connect`) polar 设备，探测可订阅数据(`describeSettings`)，订阅数据(`startHr`)等核心任务流程。发送数据的工作则主要由`UDPSenderService`（简称 UDPSS) 执行，具有使用`recreateConnection()`连接目标地址，使用`send()`来发送数据等功能。整个App主要包含两个界面：主界面`HomeView`，采集页面`CollectView` 。它们负责接受用户的输入，将用户需求转达AS (或其他功能模块)，以及向用户显示交互反馈。
+最高层的命令的来自用户，用户选择要连接的Polar设备、需要的数据、对数据进行标注等操作，这些行为涉及了各种系统功能，所有这些功能都由`AppStore.swift`（简称 AS）这个全局状态机进行调度和管理。在数据采集方面，获取Polar 设备探测的生理数据主要依赖 Polar SDK。在 IOS 系统中使用`PolarManager.swift`（简称 PM）管理和执行与此相关的任务，包括：扫描(`startScan`)，连接(`connect`) polar 设备，探测可订阅数据(`describeSettings`)，订阅数据(`startHr`)等核心任务流程。发送数据的工作则主要由`UDPSenderService`（简称 UDPSS) 执行，具有使用`recreateConnection()`连接目标地址，使用`send()`来发送数据等功能。整个App主要包含两个界面：主界面`HomeView`，采集页面`CollectView` 。它们负责接受用户的输入，将用户需求转达AS (或其他功能模块)，以及向用户显示交互反馈。
 
-App ~={green}首页`HomeView` （简称 HV ）打开后，立即告诉 PM 扫描设备=~。~={cyan}AS 则在初始化时=~就检测 PM 是否扫描到可用设备，以及与可用设备的连接状态。如果连接上，立即把连接状态记录到系统中，供其他功能或页面在需要时查阅。根据 AS 的记录 HV 将可用的设备显示在界面上，等待用户确认连接。用户点击后，AS 命令 PM 启动连接 (`connect()`) 设备，PM 随后通过 Polar SDK 进行连接，并获得设备 ID。AS 根据 PM 的 设备ID 信息的变化来识别连接状态，一旦确认连接后，立即更新连接记录数据。
+App 首页`HomeView` （简称 HV ）打开后，立即告诉 PM 扫描设备，以避免 Scene 初始化竞争。AS 则在初始化时就检测 PM 是否扫描到可用设备，以及与可用设备的连接状态，并在app打开的期间持续监听。如果连接上，立即把连接状态记录到系统中，供其他功能或页面在需要时查阅。根据 AS 的记录 HV 将可用的设备显示在界面上，等待用户确认连接。用户点击后，AS 命令 PM 启动连接 (`connect()`) 设备，PM 随后通过 Polar SDK 进行连接，并获得设备 ID。AS 根据 PM 的 设备ID 信息的变化来识别连接状态，一旦确认连接后，立即更新连接记录数据。
 
 设备连接为后续一系列任务铺平道路。首先，HV 可以在界面上向用户报告设备已经连接就绪，暗示用户可以进行下一步操作了。其次，AS 可以明确哪些生理信号可以获取了。比如连接到 H10，可以获取 ecg, hr, rr 等数据，连接到 Verity 则可以获取 ppi, ppg, hr 等数据。这是依靠 PM 的 `probeCapabilities()` 来实现的。PM 会将识别到的可以订阅的数据类型信息保存在 `availableSignals`变量中。再次，`CollectView`（简称 CV） 根据 `availableSignals` 是否有数据，以及有什么数据，可以把这些数据呈现在自己界面的"选择数据"卡片中，让用户进行下一步选择操作。
 

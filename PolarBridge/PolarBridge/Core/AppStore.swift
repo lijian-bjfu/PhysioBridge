@@ -14,7 +14,7 @@ import Combine
 
 // ====== 采集信号的标准枚举 ======
 enum SignalKind: String, CaseIterable, Hashable, Identifiable {
-    case ppi, ppg, hr, ecg, rr, acc
+    case ppi, ppg, ecg, rr, vhr, vacc, hhr, hacc
     var id: String { rawValue }
 
     /// UI 上显示的中文名
@@ -22,10 +22,12 @@ enum SignalKind: String, CaseIterable, Hashable, Identifiable {
         switch self {
         case .ppi: return "PPI"
         case .ppg: return "PPG"
-        case .hr:  return "HR"
         case .ecg: return "ECG"
-        case .rr: return "RR"
-        case .acc: return "ACC"
+        case .rr:  return "RR"
+        case .vhr:  return "VHR"
+        case .hhr:  return "HHR"
+        case .vacc: return "VACC"
+        case .hacc: return "HACC"
         }
     }
 
@@ -34,50 +36,55 @@ enum SignalKind: String, CaseIterable, Hashable, Identifiable {
         switch self {
         case .ppi: return "bolt.heart"
         case .ppg: return "waveform.path.ecg"
-        case .hr:  return "heart.fill"
         case .ecg: return "waveform"
         case .rr: return "rhombus"
-        case .acc: return "gyroscope"
+        case .vhr:  return "Verity's heart.fill"
+        case .hhr:  return "H10's heart.fill"
+        case .vacc: return "Verity's gyroscope"
+        case .hacc: return "H10's gyroscope"
         }
     }
     
     // 只读元数据（单位/采样率/简介
     var unit: String {
         switch self {
-        case .hr:  return "bpm"
         case .rr:  return "ms"
         case .ecg: return "μV"
-        case .acc: return "mG"
         case .ppi: return "ms"
         case .ppg: return "a.u."
+        case .vhr:  return "bpm"
+        case .hhr:  return "bpm"
+        case .vacc: return "mG"
+        case .hacc: return "mG"
         }
     }
     var defaultFs: Int? {
         switch self {
         case .ecg: return 130          // Polar H10 ECG 固定 130 Hz
-        case .acc: return 50           // MVP 先以 50 Hz 为默认
+        case .hacc: return 50           // MVP 先以 50 Hz 为默认
         default:   return nil
         }
     }
     var defaultRangeG: Int? {
         switch self {
-        case .acc: return 4            // MVP 先以 ±4G 为默认
+        case .hacc: return 4            // MVP 先以 ±4G 为默认
         default:   return nil
         }
     }
     var shortDesc: String {
         switch self {
-        case .hr:  return "每秒心率"
         case .rr:  return "相邻心搏间期"
         case .ecg: return "心电微伏采样"
-        case .acc: return "三轴体动加速度"
         case .ppi: return "心搏间期（相机/光电）"
         case .ppg: return "光体积脉搏波"
+        case .vhr:  return "每秒心率"
+        case .hhr:  return "每秒心率"
+        case .vacc: return "三轴体动加速度"
+        case .hacc: return "三轴体动加速度"
         }
     }
 
 }
-
 
 // 设备状态（先够用，后续再细化）
 enum DeviceStatus: String, Codable {
@@ -94,14 +101,16 @@ struct UdpTarget: Codable, Equatable {
     var isValid: Bool { !host.isEmpty && (1...65535).contains(port) }
 }
 
+
 @MainActor
 final class AppStore: ObservableObject {
     static let shared = AppStore()
     
     // 绑定设备
     private var cancellables = Set<AnyCancellable>()
-    // 用 lastChosenH10Id 锚定“当前正要连接的那个设备”，避免误把其他设备的连接事件映射到 H10 卡片
+    // 用以下两个变量锚定“当前正要连接的那个设备”
     private var lastChosenH10Id: String? = nil
+    private var lastChosenVerityId: String? = nil
     
     // 是否启用内置模拟数据（先默认 true，等接入 Polar 后可关掉）
     @Published var simulateData: Bool = false
@@ -143,8 +152,8 @@ final class AppStore: ObservableObject {
     /// 约定：Verity -> PPI / PPG / HR，H10 -> ECG / HR
     var availableSignals: Set<SignalKind> {
         var s: Set<SignalKind> = []
-        if verityState == .connected { s.formUnion([.ppi, .ppg, .hr, .rr, .acc]) }
-        if h10State    == .connected { s.formUnion([.ecg, .hr, .rr, .acc]) }
+        if verityState == .connected { s.formUnion([.ppi, .ppg, .vhr, .vacc]) }
+        if h10State    == .connected { s.formUnion([.ecg, .hhr, .rr, .hacc]) }
         return s
     }
     /// 用户在采集页实际勾选的信号集合（由 UI 改动）
@@ -193,14 +202,26 @@ final class AppStore: ObservableObject {
     private func bindPolar() {
         let pm = PolarManager.shared
 
-        // 1) 扫描结果：出现 H10 → discovered；否则在未连接时 not_found
+        // 1) 扫描结果：出现 verity/H10 → discovered；否则在未连接时 not_found
         pm.$discovered
             .receive(on: DispatchQueue.main)
             .sink { [weak self] list in
                 guard let self = self else { return }
+                // H10 的发现状态
                 let hasH10 = list.contains { $0.name.localizedCaseInsensitiveContains("h10") }
                 if self.h10State != .connected {
                     self.h10State = hasH10 ? .discovered : .not_found
+                }
+                
+                // Verity（含 Verity Sense 两个名字搜索）的发现状态
+                let hasVerity = list.contains {
+                    let n = $0.name.lowercased()
+                    return n.contains("sense") || n.contains("verity")
+                }
+                if self.verityState != .connected {
+                    self.verityState = hasVerity ? .discovered : .not_found
+                    // 可选的一次性调试输出，便于确认绑定生效
+                    // print("[AppStore][Verity] discovered=\(hasVerity)")
                 }
             }
             .store(in: &cancellables)
@@ -212,6 +233,9 @@ final class AppStore: ObservableObject {
                 guard let self = self else { return }
                 if let id = id, id == self.lastChosenH10Id {
                     self.h10State = .connecting
+                }
+                if let id = id, id == self.lastChosenVerityId {
+                    self.verityState = .connecting
                 }
             }
             .store(in: &cancellables)
@@ -230,6 +254,18 @@ final class AppStore: ObservableObject {
                         // 若扫描里仍能看到 H10，则回退到 discovered，否则 not_found
                         let hasH10 = pm.discovered.contains { $0.name.localizedCaseInsensitiveContains("h10") }
                         self.h10State = hasH10 ? .discovered : .not_found
+                    }
+                }
+                
+                if let id = id, id == self.lastChosenVerityId {
+                    self.verityState = .connected
+                    self.refreshSourcesByConnectedDevices()
+                } else {
+                    // 若不是我们选中的 verity 或变为 nil：在非 connecting 状态下回退
+                    if self.verityState != .connecting {
+                        // 若扫描里仍能看到 verity，则回退到 discovered，否则 not_found
+                        let hasVerity = pm.discovered.contains { $0.name.localizedCaseInsensitiveContains("Verity") }
+                        self.verityState = hasVerity ? .discovered : .not_found
                     }
                 }
             }
@@ -323,14 +359,14 @@ final class AppStore: ObservableObject {
     /// 根据已连接设备刷新“可用数据源”
     func refreshSourcesByConnectedDevices() {
         var set = Set<DataSource>()
-        if verityState == .connected { set.formUnion([.ppi, .ppg, .hr]) }
-        if h10State    == .connected { set.formUnion([.ecg, .hr]) }
+        if verityState == .connected { set.formUnion([.ppi, .ppg, .vhr]) }
+        if h10State    == .connected { set.formUnion([.ecg, .hhr]) }
         activeSources = Array(set).sorted { $0.rawValue < $1.rawValue }
         print("[AppStore] activeSources -> \(activeSources.map { $0.title }.joined(separator: ","))")
         
         // 进入采集页时就能清晰看到有哪些可选数据类型
         let availNames = Array(self.availableSignals).map { $0.title }.sorted().joined(separator: ",")
-        print("[Signals][Available] \(availNames)")
+        print("[Signals][Available] 可用数据 \(availNames)")
     }
     
     // 用户选择收集哪个数据
@@ -352,7 +388,19 @@ final class AppStore: ObservableObject {
     func tapDeviceCard(_ which: String) {
         switch which {
         case "verity":
-            guard verityConnected else { return }
+            if verityConnected {
+                // 已连接：点击即刷新可订阅数据源
+                refreshSourcesByConnectedDevices()
+                return
+            }
+            guard let id = bestVerityCandidateId() else {
+                pushError("尚未发现 Verity，请确认已开启/在附近，且关闭 Polar Flow。")
+                return
+            }
+            verityState = .connecting
+            lastChosenVerityId = id
+            print("[AppStore][Verity] connect -> \(id)")
+            PolarManager.shared.connect(id: id)
         case "h10":
             //点击 H10 即发起连接”的实现
             if h10Connected {
@@ -394,6 +442,19 @@ final class AppStore: ObservableObject {
         let best  = base.max(by: { $0.rssi < $1.rssi })
         return best?.id
     }
+    // 选一个最合适的 Verity 设备
+    private func bestVerityCandidateId() -> String? {
+        let list = PolarManager.shared.discovered
+        // Verity 广播名通常包含 "Sense"；也兼容 "Verity"、"OH1"
+        let verities = list.filter {
+            let n = $0.name.lowercased()
+            return n.contains("sense") || n.contains("verity") || n.contains("oh1")
+        }
+        let base = verities.isEmpty ? list : verities
+        let best = base.max(by: { $0.rssi < $1.rssi })
+        return best?.id
+    }
+
     
     // --- 采集页面-当前采集状态栏配置信息 ---
     

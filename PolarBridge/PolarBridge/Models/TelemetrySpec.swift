@@ -8,6 +8,7 @@ import Foundation
 
 enum TelemetrySpec {
     static let deviceNameH10 = "H10"
+    static let deviceNameVerity = "Verity"
 
     enum Units {
         static let bpm = "bpm"

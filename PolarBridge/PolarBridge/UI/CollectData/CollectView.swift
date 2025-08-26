@@ -94,7 +94,7 @@ struct CollectView: View {
                         // 卡片下方增加只读“已选择”摘要
                         let details = store.selectedSignals
                             .map { kind -> String in
-                                if let fs = kind.defaultFs, let rg = kind.defaultRangeG, kind == .acc {
+                                if let fs = kind.defaultFs, let rg = kind.defaultRangeG, kind == .vacc || kind == .hacc {
                                     return "\(kind.title)（\(kind.unit)@\(fs)Hz，±\(rg)G；\(kind.shortDesc)）"
                                 } else if let fs = kind.defaultFs {
                                     return "\(kind.title)（\(kind.unit)@\(fs)Hz；\(kind.shortDesc)）"

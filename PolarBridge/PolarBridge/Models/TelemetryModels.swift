@@ -69,6 +69,35 @@ struct ACCPacket: TelemetryPacket {
     let range_g: Int
 }
 
+// MARK: - Verity Sense:
+
+/// PPI（光学法的心搏间期，不等间隔事件）
+struct PPIPacket: Codable {
+    // 统一字段命名与现有 RR/Markers 保持风格一致
+    // type 用于上位机分流；device 用于标识来源设备（如 "Verity"）
+    var type: String = "ppi"
+    let device: String          // 设备名或型号，例如 "Verity"
+    let t_device: Double        // iPhone 本地时间戳（秒，双精度）
+    let seq: UInt64?                // 批次序号（单调递增，便于检测缺批/乱序）
+    let ms: Int                 // 单个心搏间期，单位毫秒
+    let quality: Int?           // 可选：Polar SDK（部分模式）会提供质量指标，保留以便扩展
+}
+
+/// PPG（光体积描记，等间隔采样的批量数据）
+struct PPGPacket: Codable {
+    var type: String = "ppg"
+    let device: String          // 设备名或型号，例如 "Verity"
+    let t_device: Double        // iPhone 本地时间戳（秒，双精度）
+    let seq: UInt64             // 批次序号（单调递增，便于检测缺批/乱序）
+    let fs: Int                 // 采样率（Hz）（Verity=55）
+    let n: Int                  // 本批样本数（冗余，便于校验）
+    let ch: Int                 // 通道数（Verity=4）
+    let mU: [[Int]]             // 按时间展开的 [n][ch] 强度矩阵（原始整数）
+}
+
+
+// MARK: - 标记与元数据
+
 /// 实验阶段等标注事件（可选）
 struct MarkerPacket: TelemetryPacket {
     var type = "marker"
