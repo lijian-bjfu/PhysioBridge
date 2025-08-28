@@ -133,6 +133,7 @@ def locate_files(root: Path) -> Dict[str, Dict[str, Path]]:
         ("_hr_verity", "HR", "verity"),
         ("_rr_h10", "RR", "h10"),
         ("_ppi_verity", "PPI", "verity"),
+        ("_ppg_verity", "PPG", "verity"), 
         ("_acc_h10", "ACC", "h10"),
         ("_acc_verity", "ACC", "verity"),
         ("_ecg_h10", "ECG", "h10"),
@@ -141,7 +142,7 @@ def locate_files(root: Path) -> Dict[str, Dict[str, Path]]:
     
     # 初始化一个空的嵌套字典
     found: Dict[str, Dict[str, Path]] = {
-        "HR": {}, "RR": {}, "PPI": {}, "ACC": {}, "ECG": {}, "MARKERS": {}
+        "HR": {}, "RR": {}, "PPI": {}, "PPG": {}, "ACC": {}, "ECG": {}, "MARKERS": {}
     }
 
     # 遍历目录下的所有CSV文件
@@ -623,7 +624,7 @@ def main():
 
         # --- 绘制ECG波形图 ---
         plot_ecg(t, X, root / f"ecg_{dev}.png", fs, dev)
-        
+
     # ... 您脚本中剩余的部分可以继续使用，因为它们通常是独立的或依赖于我们已经修正的逻辑 ...
     # 比如最后的总体评级
     report.extend(["", f"[OVERALL] -> {combine_grades(grades)}", "", "[CLEANING] 建议：",

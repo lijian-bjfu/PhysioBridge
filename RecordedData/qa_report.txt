@@ -1,5 +1,7 @@
 [DIR] /Users/lijian/Desktop/GitHub/polar_bridge/RecordedData
-[FOUND] HR(h10, verity), RR(h10), PPI(verity), ACC(-), ECG(h10), MARKERS(unknown)
+[FOUND] HR(h10, verity), RR(h10), PPI(verity), PPG(verity), ACC(-), ECG(h10), MARKERS(unknown)
+[PPG] (verity) fs≈54.57Hz span=113.75s completeness=0.992 -> PASS | 规则: 值≥0.990 为 PASS；0.970≤值<0.990 为 WARN；值<0.970 为 FAIL
+[PPG] (verity) channel consistency mean=0.997 min=0.993 -> PASS | 规则: 值≥0.600 为 PASS；0.300≤值<0.600 为 WARN；值<0.300 为 FAIL
 [HR vs RR] MAE=3.54 bpm -> WARN | 规则: 值≤2.000 bpm 为 PASS；2.000 bpm<值≤5.000 bpm 为 WARN；值>5.000 bpm 为 FAIL
 [RR Quality] (h10) Beats=137, Mean HR=72.5 bpm, SDNN=37.2 ms, RMSSD=21.8 ms, Artifacts(>20%)=0.00%
 [HR vs PPI] MAE=8.42 bpm -> FAIL | 规则: 值≤2.000 bpm 为 PASS；2.000 bpm<值≤5.000 bpm 为 WARN；值>5.000 bpm 为 FAIL
