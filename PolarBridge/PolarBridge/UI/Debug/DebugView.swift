@@ -28,23 +28,23 @@ struct DebugView: View {
         NavigationView {
             Form {
                 Section("设备状态（手动切换）") {
-                    Picker("Verity", selection: Binding(
-                        get: { store.verityState },
-                        set: { store.setVerityState($0) }
-                    )) {
-                        ForEach(DeviceState.allCases) { st in
-                            Text(st.rawValue).tag(st)
-                        }
-                    }
-
-                    Picker("H10", selection: Binding(
-                        get: { store.h10State },
-                        set: { store.setH10State($0) }
-                    )) {
-                        ForEach(DeviceState.allCases) { st in
-                            Text(st.rawValue).tag(st)
-                        }
-                    }
+//                    Picker("Verity", selection: Binding(
+//                        get: { store.verityState },
+//                        set: { store.setVerityState($0) }
+//                    )) {
+//                        ForEach(DeviceState.allCases) { st in
+//                            Text(st.rawValue).tag(st)
+//                        }
+//                    }
+//
+//                    Picker("H10", selection: Binding(
+//                        get: { store.h10State },
+//                        set: { store.setH10State($0) }
+//                    )) {
+//                        ForEach(DeviceState.allCases) { st in
+//                            Text(st.rawValue).tag(st)
+//                        }
+//                    }
                 }
                 // 目标配置
                 Section("UDP 目标") {
@@ -89,33 +89,33 @@ struct DebugView: View {
 
                 // 发送一次
                 Section("调试/单次发送") {
-                    Button("发送一次") {
-                        store.sendOnceHeartbeat()
-                    }
-                        .buttonStyle(.bordered)
+//                    Button("发送一次") {
+//                        store.sendOnceHeartbeat()
+//                    }
+//                        .buttonStyle(.bordered)
                 }
 
                 // 状态
-                Section("状态") {
-                    HStack {
-                        Circle().fill(store.isCollecting ? .green : .gray)
-                            .frame(width: 10, height: 10)
-                        Text(store.isCollecting ? "正在连续发送" : "已停止")
-                    }
-                    Text("当前目标：\(udpHost):\(udpPort)")
-                    Text("累计发送：\(store.collectCount) 条")
-                    Text("最近一次：\(store.lastSentAt?.formatted(date: .omitted, time: .standard) ?? "—")")
-                        .foregroundStyle(.secondary)
-                }
-
-                // 实验标注
-                Section("实验标注") {
-                    Button("基线开始") { store.emitMarker(.baseline_start, )}
-                    Button("刺激开始") { store.emitMarker(.stim_start) }
-                    Button("刺激结束") { store.emitMarker(.stim_end) }
-                    Button("干预开始") { store.emitMarker(.intervention_start) }
-                    Button("干预结束") { store.emitMarker(.intervention_end)}
-                }
+//                Section("状态") {
+//                    HStack {
+//                        Circle().fill(store.isCollecting ? .green : .gray)
+//                            .frame(width: 10, height: 10)
+//                        Text(store.isCollecting ? "正在连续发送" : "已停止")
+//                    }
+//                    Text("当前目标：\(udpHost):\(udpPort)")
+//                    Text("累计发送：\(store.collectCount) 条")
+//                    Text("最近一次：\(store.lastSentAt?.formatted(date: .omitted, time: .standard) ?? "—")")
+//                        .foregroundStyle(.secondary)
+//                }
+//
+//                // 实验标注
+//                Section("实验标注") {
+//                    Button("基线开始") { store.emitMarker(.baseline_start, )}
+//                    Button("刺激开始") { store.emitMarker(.stim_start) }
+//                    Button("刺激结束") { store.emitMarker(.stim_end) }
+//                    Button("干预开始") { store.emitMarker(.intervention_start) }
+//                    Button("干预结束") { store.emitMarker(.intervention_end)}
+//                }
             }
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {

@@ -1,0 +1,80 @@
+数据导出结果报告
+源文件: sub-P001_ses-S001_task-Default_run-001_all.xdf
+
+共生成 7 个 CSV 文件：
+
+文件: sub-P001_ses-S001_task-Default_run-001_all_ppg_verity.csv
+形状: 6208 行 × 5 列
+行含义: 每行是一条PPG记录（按 time_lsl 升序）
+列说明:
+  - time_lsl: LSL 时间戳（秒，local_clock 单调时钟）
+  - ch1: PPG 原始计数（22-bit）
+  - ch2: PPG 原始计数（22-bit）
+  - ch3: PPG 原始计数（22-bit）
+  - ch4: PPG 原始计数（22-bit）
+数据说明:
+  · PPG 为 22-bit 原始计数，示光电信号的原始强度，值大概在几万到几百万间波动，和放大增益/光路有关。
+  · 四个通道中常有一路环境光（ambient）。具体通道映射视设备/固件而定。
+  · 常见做法：带通/去漂移/归一化，再进行脉搏定位或与 PPI 对齐。
+
+文件: sub-P001_ses-S001_task-Default_run-001_all_ecg_h10.csv
+形状: 14600 行 × 2 列
+行含义: 每行是一条ECG记录（按 time_lsl 升序）
+列说明:
+  - time_lsl: LSL 时间戳（秒，local_clock 单调时钟）
+  - uV: 心电电压（微伏）
+数据说明:
+  · 单位微伏（uV）。H10 提供等采样 ECG（典型 130Hz）。
+
+文件: sub-P001_ses-S001_task-Default_run-001_all_hr_h10.csv
+形状: 114 行 × 2 列
+行含义: 每行是一条HR记录（按 time_lsl 升序）
+列说明:
+  - time_lsl: LSL 时间戳（秒，local_clock 单调时钟）
+  - bpm: 瞬时心率（bpm）
+数据说明:
+  · bpm 为设备侧瞬时心率。建议与 RR/PPI 推导的一致性作校验。
+
+文件: sub-P001_ses-S001_task-Default_run-001_all_hr_verity.csv
+形状: 111 行 × 2 列
+行含义: 每行是一条HR记录（按 time_lsl 升序）
+列说明:
+  - time_lsl: LSL 时间戳（秒，local_clock 单调时钟）
+  - bpm: 瞬时心率（bpm）
+数据说明:
+  · bpm 为设备侧瞬时心率。建议与 RR/PPI 推导的一致性作校验。
+
+文件: sub-P001_ses-S001_task-Default_run-001_all_ppi_verity.csv
+形状: 138 行 × 7 列
+行含义: 每行是一条PPI记录（按 time_lsl 升序）
+列说明:
+  - time_lsl: LSL 时间戳（秒，local_clock 单调时钟）
+  - ms: 心搏间期（毫秒）
+  - quality: 误差估计（毫秒）
+  - blocker: blockerBit（1=此拍无效）
+  - skinContact: 皮肤接触良好(1/0)
+  - skinSupported: 支持皮肤接触检测(1/0)
+  - te: beat 事件时间（秒）
+数据说明:
+  · ms 为脉搏间期（毫秒）。quality 为误差估计（毫秒，越小越好）。
+  · 可选标志位：blockerBit（1=此拍无效）、skinContactStatus（1=皮肤接触良好）、skinContactSupported（1=支持检测）。
+
+文件: sub-P001_ses-S001_task-Default_run-001_all_rr_h10.csv
+形状: 137 行 × 3 列
+行含义: 每行是一条RR记录（按 time_lsl 升序）
+列说明:
+  - time_lsl: LSL 时间戳（秒，local_clock 单调时钟）
+  - ms: R-R 间期（毫秒）
+  - te: beat 事件时间（秒）
+数据说明:
+  · RR 来自 H10（心电 R-R 间期），单位毫秒。若含 te 列，为 beat 事件时间（LSL 对齐后）。
+
+文件: sub-P001_ses-S001_task-Default_run-001_all_markers.csv
+形状: 0 行 × 2 列
+行含义: 每行是一条Markers记录（按 time_lsl 升序）
+列说明:
+  - time_lsl: LSL 时间戳（秒，local_clock 单调时钟）
+  - label: 事件标签（字符串）
+数据说明:
+  · 实验阶段标签来自手机端事件；后续可在分析脚本中转为 trial 边界。
+

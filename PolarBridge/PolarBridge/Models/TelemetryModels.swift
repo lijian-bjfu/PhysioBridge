@@ -37,6 +37,7 @@ struct RRPacket: TelemetryPacket {
     let t_device: Double // 什么时候发的
     let seq: UInt64?
     let ms: Int
+    let te: Double?  // time event 事件发生时刻，iPhone 本地时间轴，用于与ppi对齐
 }
 
 /// 心电（ECG，批量发送，单位 μV）
@@ -72,7 +73,7 @@ struct ACCPacket: TelemetryPacket {
 // MARK: - Verity Sense:
 
 /// PPI（光学法的心搏间期，不等间隔事件）
-struct PPIPacket: Codable {
+struct PPIPacket: TelemetryPacket {
     // 统一字段命名与现有 RR/Markers 保持风格一致
     // type 用于上位机分流；device 用于标识来源设备（如 "Verity"）
     var type: String = "ppi"
@@ -81,6 +82,11 @@ struct PPIPacket: Codable {
     let seq: UInt64?                // 批次序号（单调递增，便于检测缺批/乱序）
     let ms: Int                 // 单个心搏间期，单位毫秒
     let quality: Int?           // 可选：Polar SDK（部分模式）会提供质量指标，保留以便扩展
+    // === PPI 质控标志（0/1），便于下游清洗 ===
+    let blocker: Int?           // 对应 Polar blockerBit（1=无效拍）
+    let skinContact: Int?       // 对应 skinContactStatus（1=接触良好）
+    let skinSupported: Int?     // 对应 skinContactSupported（1=该能力可用）
+    let te: Double?             // time event 事件发生时刻，iPhone 本地时间轴，用于与ppi对齐
 }
 
 /// PPG（光体积描记，等间隔采样的批量数据）
