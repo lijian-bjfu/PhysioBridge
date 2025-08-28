@@ -4,6 +4,7 @@
 [RR Quality] (h10) Beats=137, Mean HR=72.5 bpm, SDNN=37.2 ms, RMSSD=21.8 ms, Artifacts(>20%)=0.00%
 [HR vs PPI] MAE=8.42 bpm -> FAIL | 规则: 值≤2.000 bpm 为 PASS；2.000 bpm<值≤5.000 bpm 为 WARN；值>5.000 bpm 为 FAIL
 [PPI Quality] (verity) Beats=138, Mean HR=73.1 bpm, SDNN=76.1 ms, RMSSD=113.6 ms, Artifacts(>20%)=3.65%
+[ECG] (h10) fs≈128.94Hz span=113.22s completeness=0.992 -> PASS | 规则: 值≥0.990 为 PASS；0.980≤值<0.990 为 WARN；值<0.980 为 FAIL
 
 [OVERALL] -> FAIL
 

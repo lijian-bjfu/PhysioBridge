@@ -427,6 +427,23 @@ def plot_poincare(X_ms: np.ndarray, out_png: Path, kind: str, device: str):
     plt.gca().set_aspect('equal', adjustable='box')
     save_fig(out_png)
 
+def plot_ecg(t: np.ndarray, X: np.ndarray, out_png: Path, fs_hint: float, device: str):
+    """绘制ECG波形图"""
+    if t.size < 2 or X.size == 0: return
+    
+    # 为了绘图效率和清晰度，可以选择性地进行下采样
+    ds = CONFIG["plot_downsample"].get("ECG", 1)
+    
+    plt.figure(figsize=(10, 3.5))
+    # X[:, 0] 代表ECG的uV值那一列
+    plt.plot(t[::ds], X[::ds, 0], linewidth=0.6)
+    
+    plt.xlabel("time_lsl (s)")
+    plt.ylabel("ECG (uV)")
+    fs_est = fs_hint if fs_hint > 0 else estimate_fs(t)
+    plt.title(f"ECG Waveform ({device})  fs≈{fs_est:.2f} Hz")
+    save_fig(out_png)
+
 # ───────────────────────────────────────────────────────────────
 # 主流程
 # ───────────────────────────────────────────────────────────────
@@ -585,8 +602,28 @@ def main():
             plot_interval_tachogram(t_ppi, X_ppi[:, 0], root / "ppi_tachogram_verity.png", "PPI", "verity")
             plot_poincare(X_ppi[:, 0], root / "ppi_poincare_verity.png", "PPI", "verity")
 
-    # (ECG, 总体评级与建议等其他代码块... )
-    # ...
+    # --- ECG 分析（ H10 ) ---
+    if "h10" in data.get("ECG", {}):
+        print("\n[INFO] 正在执行 ECG (H10) 数据分析...")
+        t, X, _ = data["ECG"]["h10"]
+        dev = "h10"
+
+        # --- ECG 采样完整率分析 ---
+        fs = estimate_fs(t)
+        fs_nom = CONFIG["nominal_fs"].get("ECG", 130.0) # 从配置读取名义采样率，兜底130Hz
+        comp = completeness(len(t), fs_nom, t[-1] - t[0]) if t.size > 1 else 0.0
+        g, rule = grade_three(comp, *CONFIG["completeness"]["ECG"].values(), True, f"ECG ({dev}) 完整率")
+        
+        report.append(
+            f"[ECG] ({dev}) fs≈{fs:.2f}Hz "
+            f"span={t[-1]-t[0]:.2f}s "
+            f"completeness={comp:.3f} -> {g} | 规则: {rule}"
+        )
+        grades.append(g)
+
+        # --- 绘制ECG波形图 ---
+        plot_ecg(t, X, root / f"ecg_{dev}.png", fs, dev)
+        
     # ... 您脚本中剩余的部分可以继续使用，因为它们通常是独立的或依赖于我们已经修正的逻辑 ...
     # 比如最后的总体评级
     report.extend(["", f"[OVERALL] -> {combine_grades(grades)}", "", "[CLEANING] 建议：",
