@@ -128,6 +128,13 @@ final class AppStore: ObservableObject {
     @Published var h10State: DeviceState    = .not_found
     var verityConnected: Bool { verityState == .connected }
     var h10Connected:    Bool { h10State    == .connected }
+    /// 派生：是否存在任一已连接设备（Publisher，不是多余状态）
+    var devicePresence: AnyPublisher<Bool, Never> {
+        Publishers.CombineLatest($h10State, $verityState)
+            .map { $0 == .connected || $1 == .connected }
+            .removeDuplicates()
+            .eraseToAnyPublisher()
+    }
 
     // 当前“点亮”的数据源（采集页用）
     @Published var activeSources: [DataSource] = []
@@ -173,7 +180,8 @@ final class AppStore: ObservableObject {
         _ = UdpMarkerBridge.shared
     }
 
-    // MARK: - Polar 绑定（双设备版）
+    // MARK: - Polar 绑定
+    /// 绑定 Verity 与 H10 设备
     private func bindPolar() {
         let pm = PolarManager.shared
 

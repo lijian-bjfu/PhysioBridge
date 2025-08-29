@@ -105,6 +105,7 @@ struct HomeView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
 
                         TaskRow(
+                            icon: "person.text.rectangle",
                             title: "受试者信息",
                             subtitle: participantID.isEmpty && sessionID.isEmpty
                                 ? "记录被测基本信息"
@@ -118,6 +119,7 @@ struct HomeView: View {
                         Divider()
 
                         TaskRow(
+                            icon: "waveform.path.ecg.rectangle",
                             title: "生理数据采集",
                             subtitle: "采集实验数据",
                             enabled: true
@@ -128,11 +130,12 @@ struct HomeView: View {
                         Divider()
 
                         TaskRow(
-                            title: "模拟数据测试",
-                            subtitle: "基于模拟数据调试设备",
+                            icon: "info.circle",
+                            title: "参考信息",
+                            subtitle: "硬件与数据信息详情",
                             enabled: true
                         ) {
-                            DebugView()
+                            InformationView(viewModel: InformationViewModel(store: AppStore.shared))
                         }
                     }
                     .padding(.horizontal)
@@ -144,6 +147,7 @@ struct HomeView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
 
                         TaskRow(
+                            icon: "clock.arrow.circlepath",
                             title: "记录历史",
                             subtitle: "查看历史记录信息",
                             enabled: true

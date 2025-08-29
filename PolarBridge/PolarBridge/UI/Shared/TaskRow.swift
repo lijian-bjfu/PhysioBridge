@@ -7,10 +7,9 @@
 
 import SwiftUI
 
-import SwiftUI
-
 struct TaskRow<Destination: View>: View {
     // 公共属性
+    let icon: String
     let title: String
     let subtitle: String
     var enabled: Bool = true
@@ -20,10 +19,12 @@ struct TaskRow<Destination: View>: View {
     private let destinationBuilder: (() -> Destination)?
 
     // B 模式（兼容旧用法）：提供 destination 闭包，点击即跳转/展示
-    init(title: String,
+    init(icon: String,
+        title: String,
          subtitle: String,
          enabled: Bool = true,
          @ViewBuilder destination: @escaping () -> Destination) {
+        self.icon = icon
         self.title = title
         self.subtitle = subtitle
         self.enabled = enabled
@@ -33,10 +34,12 @@ struct TaskRow<Destination: View>: View {
 
     // A 模式（新增）：仅执行动作，不内置 sheet/目的页
     // 用法：TaskRow(title:..., subtitle:..., enabled: true, action: { ... })
-    init(title: String,
+    init(icon: String,
+        title: String,
          subtitle: String,
          enabled: Bool = true,
          action: @escaping () -> Void) where Destination == EmptyView {
+        self.icon = icon
         self.title = title
         self.subtitle = subtitle
         self.enabled = enabled
@@ -77,9 +80,10 @@ struct TaskRow<Destination: View>: View {
     private var rowContent: some View {
         HStack(spacing: 12) {
             // 左侧图标占位（保持你原来的风格）
-            Circle()
-                .fill(enabled ? Color.blue.opacity(0.2) : Color.gray.opacity(0.2))
+            Image(systemName: icon)
+                .font(.title3)
                 .frame(width: 28, height: 28)
+                .foregroundColor(.accentColor)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
