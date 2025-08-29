@@ -45,6 +45,7 @@ final class PolarManager: NSObject, ObservableObject {
         let name: String
         let rssi: Int
         let connectable: Bool
+        var batteryLevel: Int? = nil
     }
 
     // MARK: - 内部状态：每设备所选/所启流
@@ -55,7 +56,7 @@ final class PolarManager: NSObject, ObservableObject {
 
     // MARK: - Polar SDK 与订阅句柄
     private var api: PolarBleApi!
-    private let disposeBag = DisposeBag()
+    private var batteryTimers: [String: DispatchSourceTimer] = [:]
 
     private var scanDisposable: Disposable?
 
@@ -118,6 +119,50 @@ final class PolarManager: NSObject, ObservableObject {
             UDPSenderService.shared.send(json)
         }
     }
+    
+    // MARK: - 丢包计算工具
+    // 统计窗口：每台设备 × 每种连续流，对最近 60s 到达样本计数
+    @Published private(set) var loss60sByDeviceAndKind: [String: [SignalKind: Double]] = [:]
+
+    // 内部状态：滑窗点列与当前 fs
+    private struct LossWindow {
+        var fs: Int                // 当前生效的采样率
+        var points: [(t: Double, n: Int)] = []  // 批次到达时间与样本数
+        mutating func record(now: Double, n: Int, fs: Int) {
+            self.fs = fs
+            points.append((now, n))
+            prune(now: now)
+        }
+        mutating func prune(now: Double) {
+            let floor = now - 60.0
+            while let first = points.first, first.t < floor { points.removeFirst() }
+        }
+        func loss(now: Double) -> Double? {
+            guard let first = points.first, fs > 0 else { return nil }
+            let elapsed = min(60.0, now - first.t)
+            guard elapsed > 0 else { return nil }
+            let arrived = points.reduce(0) { $0 + $1.n }
+            let expected = Double(fs) * elapsed
+            guard expected > 0 else { return nil }
+            let rate = max(0, 1 - Double(arrived)/expected)
+            return min(1, rate)
+        }
+    }
+    private var lossWindows: [String: LossWindow] = [:]
+    private func lwKey(_ id: String, _ kind: SignalKind) -> String { "\(id)|\(kind.rawValue)" }
+    private func recordLoss(deviceId: String, kind: SignalKind, samples n: Int, fs: Int) {
+        let now = Date().timeIntervalSince1970
+        let k = lwKey(deviceId, kind)
+        var w = lossWindows[k] ?? LossWindow(fs: fs, points: [])
+        w.record(now: now, n: n, fs: fs)
+        lossWindows[k] = w
+        if let rate = w.loss(now: now) {
+            var byKind = loss60sByDeviceAndKind[deviceId] ?? [:]
+            byKind[kind] = rate
+            loss60sByDeviceAndKind[deviceId] = byKind
+        }
+    }
+
 
     // MARK: - 初始化
     override init() {
@@ -348,7 +393,9 @@ final class PolarManager: NSObject, ObservableObject {
                     let pkt = ECGPacket(device: dev, t_device: t, seq: self.seqECG, fs: 130, uV: uV, n: uV.count)
                     self.sendPacket(pkt)
                     self.log("ECG", "batch n=\(uV.count)")
-                    //Task { @MainActor in AppStore.shared.markSent() }
+                    
+                    // 计算ecg丢包
+                    self.recordLoss(deviceId: deviceId, kind: .ecg, samples: uV.count, fs: 130)
                 }, onError: { [weak self] err in
                     self?.log("ECG", "stream error[\(deviceId)]: \(err)")
                 })
@@ -357,6 +404,8 @@ final class PolarManager: NSObject, ObservableObject {
         case .hacc: // H10 ACC
             // 若已有订阅先停止，避免重复回调
             haccDisposable?.dispose()
+            // 丢包变量
+            var selSr: UInt32 = 0
             // 先查询 ACC 可用设置，再用所选设置开启流
             haccDisposable = api
                 .requestStreamSettings(deviceId, feature: .acc)
@@ -378,6 +427,7 @@ final class PolarManager: NSObject, ObservableObject {
                         self.log("ACC", "H10 no sampleRate available, abort")
                         return .empty()
                     }
+                    selSr = sr
                     // 组装仅包含“设备确实支持”的键
                     var chosenDict: [PolarSensorSetting.SettingType: UInt32] = [.sampleRate: sr]
                     
@@ -403,7 +453,10 @@ final class PolarManager: NSObject, ObservableObject {
                     let triples = acc.map { [Int($0.x), Int($0.y), Int($0.z)] }
                     let pkt = ACCPacket(device: dev, t_device: t, seq: self.seqHACC, fs: 50, mG: triples, n: triples.count, range_g: 4)
                     self.sendPacket(pkt)
-                    //Task { @MainActor in AppStore.shared.markSent() }
+                    
+                    // 丢包
+                    let fsInt = selSr == 0 ? 50 : Int(selSr)
+                    self.recordLoss(deviceId: deviceId, kind: .hacc, samples: triples.count, fs: fsInt)
                 }, onError: { [weak self] err in
                     self?.log("ACC", "H10 stream error[\(deviceId)]: \(err)")
                 })
@@ -486,6 +539,9 @@ final class PolarManager: NSObject, ObservableObject {
                         range_g: rangeInt
                     )
                     self.sendPacket(pkt)
+                    
+                    // 丢包计算
+                    self.recordLoss(deviceId: deviceId, kind: .vacc, samples: triples.count, fs: fsInt)
                 }, onError: { [weak self] err in
                     self?.log("ACC", "Verity stream error[\(deviceId)]: \(err)")
                 })
@@ -522,7 +578,9 @@ final class PolarManager: NSObject, ObservableObject {
                     let pkt = PPGPacket(device: dev, t_device: t, seq: self.seqPPG, fs: self.ppgFsSelected, n: n, ch: ch, mU: matrix)
                     self.sendPacket(pkt)
                     self.log("PPG", "batch n=\(n) channels=\(ch)")
-                    //Task { @MainActor in AppStore.shared.markSent() }
+                    
+                    // 丢包
+                    self.recordLoss(deviceId: deviceId, kind: .ppg, samples: n, fs: self.ppgFsSelected)
                 }, onError: { [weak self] err in
                     self?.log("PPG", "stream error[\(deviceId)]: \(err)")
                 })
@@ -584,6 +642,7 @@ final class PolarManager: NSObject, ObservableObject {
             log("STREAM", "PPI stopped (Verity)")
         }
     }
+
 }
 
 // MARK: - Polar 观察者
@@ -629,9 +688,27 @@ extension PolarManager: PolarBleApiPowerStateObserver {
 }
 
 extension PolarManager: PolarBleApiDeviceInfoObserver {
+    // 电池信息
     func batteryLevelReceived(_ identifier: String, batteryLevel: UInt) {
-        print("[DEVICE][BAT] \(identifier): \(batteryLevel)%")
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+
+            if let idx = self.discovered.firstIndex(where: { $0.id == identifier }) {
+                self.discovered[idx].batteryLevel = Int(batteryLevel)
+            } else {
+                // 极少数情况下连接早于扫描缓存，这里兜底插入一条
+                self.discovered.append(
+                    Discovered(id: identifier,
+                               name: identifier,
+                               rssi: 0,
+                               connectable: true,
+                               batteryLevel: Int(batteryLevel))
+                )
+            }
+            self.log("DEVICE/BAT", "\(identifier): \(batteryLevel)%")
+        }
     }
+    
     func batteryChargingStatusReceived(_ identifier: String, chargingStatus: BleBasClient.ChargeState) {
         print("[DEVICE][CHG] \(identifier): \(chargingStatus)")
     }

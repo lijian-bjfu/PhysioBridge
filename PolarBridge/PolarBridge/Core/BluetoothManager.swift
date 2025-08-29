@@ -19,8 +19,6 @@ final class BluetoothManager: NSObject {
     
     @Published var bluetoothState: CBManagerState = .unknown
     private var central: CBCentralManager!
-    
-    private var centralManager: CBCentralManager!
 
     private override init() {
         super.init()

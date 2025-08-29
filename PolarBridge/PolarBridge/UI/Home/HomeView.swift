@@ -18,10 +18,6 @@ struct HomeView: View {
     @AppStorage("udpHost") private var udpHost: String = AppConfig.defaultUDPHost
     @AppStorage("udpPort") private var udpPort: Int    = AppConfig.defaultUDPPort
     
-    // 受试者与会话编号的本地持久化
-    @AppStorage("participantID") private var participantID: String = ""
-    @AppStorage("sessionID")     private var sessionID: String = ""
-    
     // 统一弹窗类型
     private enum ActiveModal: String, Identifiable {
         case udp, subject
@@ -107,9 +103,9 @@ struct HomeView: View {
                         TaskRow(
                             icon: "person.text.rectangle",
                             title: "受试者信息",
-                            subtitle: participantID.isEmpty && sessionID.isEmpty
+                            subtitle: (store.subjectID ?? "").isEmpty && store.trialID.isEmpty
                                 ? "记录被测基本信息"
-                                : "PID: \(participantID) · SESSION: \(sessionID)",
+                                : "PID: \(store.subjectID ?? "") · SESSION: \(store.trialID)",
                             enabled: true,
                             action: {
                                 activeModal = .subject
@@ -176,14 +172,12 @@ struct HomeView: View {
 
                 case .subject:
                     SubjectInfoSheetView(
-                        initialPID: participantID,
-                        initialSID: sessionID,
+                        initialPID: store.subjectID ?? "",
+                        initialSID: store.trialID,
                         onCancel: { activeModal = nil },
                         onConfirm: { pid, sid in
                             // 写回持久化，并广播到 LSL（session_meta + marker）
                             @MainActor func apply() {
-                                participantID = pid
-                                sessionID = sid
                                 AppStore.shared.applyParticipant(pid: pid, sessionID: sid)
                                 activeModal = nil
                             }

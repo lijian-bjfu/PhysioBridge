@@ -133,10 +133,12 @@ struct CollectView: View {
                     VStack(spacing: 12) {
                         // 1) 大按钮：固定高度，只显示总计时
                         Button {
-                            if isCollecting {
-                                store.stopCollect()
-                            } else {
-                                store.startCollect()
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                if isCollecting {
+                                    store.stopCollect()     // 这里会把 isCollecting 置为 false
+                                } else {
+                                    store.startCollect()    // 这里会把 isCollecting 置为 true
+                                }
                             }
                         } label: {
                             VStack {
@@ -205,15 +207,28 @@ struct CollectView: View {
                     }
                 }
                 // ───────── D. 采集进度 ─────────
-                SectionHeader("采集进度")
-                Card {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("说明：此区显示最小化的实时进度/统计；根据实验需求继续开发。")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                            .padding(.top, 4)
+                if showProgressCard {
+                    SectionCard {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("采集进度")
+                                .font(.title3.weight(.bold))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+
+                            ProgressLogView()   // 黑底绿字电传纸带
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
+//                SectionHeader("采集进度")
+//                Card {
+//                    VStack(alignment: .leading, spacing: 8) {
+//                        Text("说明：此区显示最小化的实时进度/统计；根据实验需求继续开发。")
+//                            .font(.footnote)
+//                            .foregroundStyle(.secondary)
+//                            .padding(.top, 4)
+//                    }
+//                }
             }
             .padding(.vertical, 12)
             .padding(.horizontal, 16)
@@ -238,6 +253,13 @@ private extension CollectView {
     // 把“可用信号排序”拆出来，避免在视图树里做复杂闭包
     var availableSorted: [SignalKind] {
         Array(store.availableSignals).sorted { $0.rawValue < $1.rawValue }
+    }
+    
+    // 显示代码上传流的界面
+    private var showProgressCard: Bool {
+        store.isCollecting            // 严格跟随开始/停止
+        // 如果你想“还得选了信号才显示”，用：
+        // store.isCollecting && !store.selectedSignals.isEmpty
     }
 }
 // MARK: - 下面是本文件内的轻量 UI 工具

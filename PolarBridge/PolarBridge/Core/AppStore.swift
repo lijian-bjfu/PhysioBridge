@@ -118,8 +118,8 @@ final class AppStore: ObservableObject {
     @Published var isCollecting: Bool = false
     @Published var lastError: String? = nil
     @Published var lastSentAt: Date?
-    @Published var subjectID: String? = nil
-    @Published var trialID: String = "0"
+    @Published var subjectID: String? = UserDefaults.standard.string(forKey: "subjectID")
+    @Published var trialID: String = UserDefaults.standard.string(forKey: "trialID") ?? "0"
 
     @Published var markerCount: Int = 0
 
@@ -135,6 +135,8 @@ final class AppStore: ObservableObject {
             .removeDuplicates()
             .eraseToAnyPublisher()
     }
+    // 对外发布的、当前已连接设备的完整信息
+    @Published private(set) var connectedDeviceInfo: PolarManager.Discovered? = nil
 
     // 当前“点亮”的数据源（采集页用）
     @Published var activeSources: [DataSource] = []
@@ -216,11 +218,15 @@ final class AppStore: ObservableObject {
 
         // H10 连接/断开
         pm.$connectedH10Id
+            .combineLatest(pm.$connectedVerityId, pm.$discovered)
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] id in
+            .sink { [weak self] h10Id, verityId, discoveredList in
                 guard let self = self else { return }
-                if let _ = id {
+                
+                // 优先显示 H10 的信息
+                if let id = h10Id {
                     self.h10State = .connected
+                    self.connectedDeviceInfo = discoveredList.first { $0.id == id }
                 } else {
                     // 回退：扫描里有就回 discovered，否则 not_found
                     let has = pm.discovered.contains { $0.name.localizedCaseInsensitiveContains("h10") }
@@ -228,6 +234,16 @@ final class AppStore: ObservableObject {
                         self.h10State = has ? .discovered : .not_found
                     }
                 }
+                
+                // 如果 H10 未连接，则显示 Verity 的信息
+                if let id = verityId {
+                    self.connectedDeviceInfo = discoveredList.first { $0.id == id }
+                    return
+                }
+                // 如果两个设备都未连接
+                self.connectedDeviceInfo = nil
+                
+                
                 self.refreshSourcesByConnectedDevices()
             }
             .store(in: &cancellables)
@@ -441,13 +457,19 @@ final class AppStore: ObservableObject {
             print("[AppStore] applyParticipant: empty pid or session, skip")
             return
         }
+        
+        // 1) 先更新“单一真相”，无论广播与否
+        subjectID = pidTrim
+        trialID   = sidTrim
+        UserDefaults.standard.set(pidTrim, forKey: "subjectID")
+        UserDefaults.standard.set(sidTrim, forKey: "trialID")
 
         print("[AppStore] participant -> pid=\(pidTrim) session=\(sidTrim)")
 
         // 本地立即广播（不依赖开始采集），便于在 LabRecorder 中作为会话开端标注
         guard broadcast else { return }
 
-        // 1) session_meta
+        // 2) session_meta
         let now = Date().timeIntervalSince1970
         let meta = SessionMetaPacket(device: "app",
                                      t_device: now,
@@ -458,7 +480,7 @@ final class AppStore: ObservableObject {
             UDPSenderService.shared.send(s)
         }
 
-        // 2) marker（清晰地写入标注流）
+        // 2.2) marker（清晰地写入标注流）
         let label = "session_update: pid=\(pidTrim), session=\(sidTrim)"
         let marker = MarkerPacket(device: "app", t_device: now, seq: nil, label: label)
         if let s2 = TelemetryEncoder.encodeToJSONString(marker) {

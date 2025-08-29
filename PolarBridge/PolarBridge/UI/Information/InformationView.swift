@@ -5,7 +5,12 @@ import SwiftUI
 struct InformationView: View {
     // 使用 @StateObject 确保 ViewModel 的生命周期与 View 绑定
     // 当 HomeView 创建并传入 ViewModel 时，View 会持有它
-    @StateObject var viewModel: InformationViewModel
+    @ObservedObject private var viewModel: InformationViewModel
+    
+    // 显式初始化包装器，堵上 dynamicMember 的洞
+    init(viewModel: InformationViewModel) {
+        self._viewModel = ObservedObject(initialValue: viewModel)
+    }
     
     var body: some View {
         ScrollView {
@@ -54,34 +59,45 @@ struct InformationView: View {
 
     // MARK: - 卡片视图构建
     
-    /// 设备信息卡片
+    // 设备信息卡片：关键是 ForEach 的这段
     private var deviceInfoCard: some View {
         SectionCard {
             VStack(alignment: .leading, spacing: 12) {
-                Text("设备信息")
-                    .font(.title3.weight(.bold))
-                
-                LabeledContent("设备名", value: viewModel.deviceName)
-                LabeledContent("设备ID", value: viewModel.deviceID)
-                
-                LabeledContent("连接状态") {
-                    Text(viewModel.connectionSummary.text)
-                        .foregroundColor(viewModel.connectionSummary.color)
-                        .fontWeight(.medium)
+                Text("设备信息").font(.title3.weight(.bold))
+
+                // 明确遍历“值” + 明确 id
+                ForEach(viewModel.devices) { dev in
+                    // 用一个容器兜住，避免 ViewBuilder 推断飘
+                    VStack(alignment: .leading, spacing: 8) {
+                        // 用闭包版本的 LabeledContent，传 Text，别用 value: 让它自己猜
+                        LabeledContent("设备名") { Text(dev.name) }
+                        LabeledContent("设备ID") { Text(dev.id) }
+                        LabeledContent("连接状态") {
+                            Text(dev.connection.text)
+                                .foregroundColor(dev.connection.color)
+                                .fontWeight(.medium)
+                        }
+                        LabeledContent("电量") { Text(dev.battery.map { "\($0)%" } ?? "—") }
+                        LabeledContent("支持数据") {
+                            Text(dev.supported.isEmpty ? "—" : dev.supported.joined(separator: ", "))
+                                .font(.callout)
+                                .lineLimit(2)
+                                .multilineTextAlignment(.trailing)
+                        }
+                        LabeledContent("信号强度") {
+                            Text(dev.rssi.map { "\($0) dBm" } ?? "—")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    // 分隔线
+                    if dev.id != viewModel.devices.last?.id {
+                        Divider().padding(.vertical, 4)
+                    }
                 }
 
-                LabeledContent("电量", value: "—") // M2.3 中实现
-                
-                LabeledContent("支持数据") {
-                    Text(viewModel.supportedFeatures.isEmpty ? "—" : viewModel.supportedFeatures.joined(separator: ", "))
-                        .font(.callout)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.trailing)
-                }
-                
-                LabeledContent("信号质量", value: "—") // M2.3 中实现
-                
-                Text("信号质量受距离与遮挡影响，差时更易中断与丢包。")
+                Text("信号强度 0 - −55dBm为优，≈ −70dBm为一般，≤ −85dBm则较弱。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .padding(.top, 2)
@@ -89,7 +105,7 @@ struct InformationView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
-    
+
     /// 采集信息卡片
     private var collectionInfoCard: some View {
         SectionCard{
@@ -97,80 +113,77 @@ struct InformationView: View {
                 Text("采集信息")
                     .font(.title3.weight(.bold))
                     .frame(maxWidth: .infinity, alignment: .leading)
-                
-                // --- 修改代码 ---
-                // 1. 绑定 isCollecting 状态，并根据状态显示不同文本
-                LabeledContent("采集状态", value: viewModel.isCollecting ? "正在采集" : "未采集")
-                
-                // 2. 仅在采集开始后，才显示详细信息
+
+                LabeledContent("采集状态") {
+                    Text(viewModel.isCollecting ? "正在采集" : "未采集")
+                        .foregroundColor(viewModel.isCollecting ? .green : .secondary)
+                        .fontWeight(.medium)
+                }
+
                 if viewModel.isCollecting {
                     Divider()
                     Text("当前订阅的信号")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
 
-                    // 动态流列表占位：后续用 ForEach(streamSummaries)
-                    VStack(spacing: 8) {
-                        ForEach(StreamPreviewItem.samples) { item in
-                            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 6) {
+                    let streams = viewModel.streamSummaries
+
+                    // 一个 Grid 包住所有条目，列宽统一
+                    Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 6) {
+                        ForEach(streams.indices, id: \.self) { i in
+                            let item = streams[i]
+
+                            // 行 1：名称 + 参数
+                            GridRow {
+                                Text(item.name).font(.body)
+                                Text(item.params)
+                                    .font(.callout)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            // 行 2：丢包(60s) 或者透明占位（保持行高一致）
+                            if item.showsLossRow {
                                 GridRow {
-                                    Text(item.name)
-                                        .font(.body)
-                                    Text(item.params)
+                                    Text("丢包(60s)").foregroundStyle(.secondary)
+                                    Text(item.lossRate?.formatted(.percent.precision(.fractionLength(1))) ?? "—")
                                         .font(.callout)
-                                        .foregroundStyle(.secondary)
                                 }
+                            } else {
                                 GridRow {
-                                    Text("丢包(60s)")
-                                        .foregroundStyle(.secondary)
-                                    Text(item.loss)
-                                        .font(.callout)
+                                    Text("占位").font(.callout).opacity(0).gridCellColumns(2)
                                 }
                             }
-                            Divider()
+
+                            // 分隔线跨两列（不是放 Grid 外）
+                            if i != streams.indices.last {
+                                GridRow { Divider().gridCellColumns(2) }
+                            }
                         }
                     }
                 } else {
-                    // 采集未开始时，显示提示语
                     Text("请您在采集页选择要测量的生理信号")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
-                // --- 修改代码结束 ---
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
     
-    /// 会话信息卡片
+    /// 参与者与实验编号信息卡片
     private var sessionInfoCard: some View {
         SectionCard {
             VStack(alignment: .leading, spacing: 12) {
-                Text("会话信息")
+                Text("实验编号")
                     .font(.title3.weight(.bold))
                     .frame(maxWidth: .infinity, alignment: .leading)
                 
-                LabeledContent("Participant", value: "—")
-                LabeledContent("Session", value: "—")
-                LabeledContent("Phase", value: "—")
+                LabeledContent("Participant") { Text(viewModel.participantText) }
+                LabeledContent("Session")     { Text(viewModel.sessionText) }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
-}
-
-// MARK: - 预览与占位样本
-private struct StreamPreviewItem: Identifiable {
-    let id = UUID()
-    let name: String
-    let params: String
-    let loss: String
-
-    static let samples: [StreamPreviewItem] = [
-        .init(name: "ECG", params: "130 Hz | 1 ch | uV", loss: "0.3%"),
-        .init(name: "ACC", params: "100 Hz | 3 ch | ±4g", loss: "0.0%"),
-        .init(name: "RR",  params: "事件流 | ms/beat",   loss: "—")
-    ]
 }
 
 #Preview {

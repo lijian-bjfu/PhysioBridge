@@ -18,7 +18,7 @@ struct TaskRow<Destination: View>: View {
     private let action: (() -> Void)?
     private let destinationBuilder: (() -> Destination)?
 
-    // B 模式（兼容旧用法）：提供 destination 闭包，点击即跳转/展示
+    // 提供 destination 闭包，点击即跳转/展示
     init(icon: String,
         title: String,
          subtitle: String,
@@ -105,39 +105,3 @@ struct TaskRow<Destination: View>: View {
         }
     }
 }
-
-
-//struct TaskRow<Destination: View>: View {
-//    let title: String
-//    let subtitle: String
-//    var enabled: Bool = true
-//    @ViewBuilder var destination: () -> Destination
-//
-//    var body: some View {
-//        NavigationLink(destination: destination()) {
-//            HStack(spacing: 12) {
-//                Circle()
-//                    .fill(enabled ? Color.blue.opacity(0.2) : Color.gray.opacity(0.2))
-//                    .frame(width: 28, height: 28)
-//
-//                VStack(alignment: .leading, spacing: 4) {
-//                    Text(title)
-//                        .font(.headline)
-//                        .lineLimit(1)
-//                        .minimumScaleFactor(0.9)
-//                    Text(subtitle)
-//                        .font(.subheadline)
-//                        .foregroundStyle(.secondary)
-//                        .lineLimit(1)
-//                        .minimumScaleFactor(0.9)
-//                }
-//                Spacer()
-//                Image(systemName: "chevron.right")
-//                    .foregroundStyle(.tertiary)
-//            }
-//            .contentShape(Rectangle())
-//            .opacity(enabled ? 1.0 : 0.5)
-//        }
-//        .disabled(!enabled)
-//    }
-//}
