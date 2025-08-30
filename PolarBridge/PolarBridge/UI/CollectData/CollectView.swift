@@ -28,6 +28,15 @@ struct CollectView: View {
     // 用于驱动UI刷新，不参与实际计时
     @State private var displayTick: Int = 0
     @State private var uiTimer: Timer?
+    
+    // 需要以store初始化的ViewModel必须明确地使用主线程
+    @StateObject private var progressVM: ProgressLogViewModel
+    init() {
+        // 在主线程里，显式注入同一个 store
+        _progressVM = StateObject(
+            wrappedValue: ProgressLogViewModel(store: AppStore.shared)
+        )
+    }
 
     var body: some View {
         ScrollView {
@@ -214,7 +223,7 @@ struct CollectView: View {
                                 .font(.title3.weight(.bold))
                                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                            ProgressLogView()   // 黑底绿字电传纸带
+                            ProgressLogView(viewModel: progressVM)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }

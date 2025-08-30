@@ -34,6 +34,14 @@ struct HomeView: View {
 
     // 用于设置修改UDP的键盘：键盘焦点
     @FocusState private var udpFocus: UdpFocusField?
+    
+    // 所有以store初始化的的ViewModel明确地在主线程上使用store
+    @StateObject private var informationVM: InformationViewModel
+    init(){
+        // 在主线程中用store初始化vm
+        _informationVM = StateObject(
+            wrappedValue: InformationViewModel(store: AppStore.shared))
+    }
 
     var body: some View {
         NavigationView {
@@ -131,7 +139,7 @@ struct HomeView: View {
                             subtitle: "硬件与数据信息详情",
                             enabled: true
                         ) {
-                            InformationView(viewModel: InformationViewModel(store: AppStore.shared))
+                            InformationView(viewModel: informationVM)
                         }
                     }
                     .padding(.horizontal)

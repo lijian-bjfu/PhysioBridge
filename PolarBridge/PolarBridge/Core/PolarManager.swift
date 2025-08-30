@@ -86,7 +86,11 @@ final class PolarManager: NSObject, ObservableObject {
 
     // 扫描心跳
     private var scanStartedAt: Date?
-    private var scanHeartbeatTimer: DispatchSourceTimer?
+    
+    // 用于UI信号流打印
+    @Published var lastECGuV: Int? = nil      // ECG 最近一个 uV
+    @Published var lastPPG1: Int? = nil       // PPG ch1 最近一个 a.u.
+    @Published var lastPpiMs: Int? = nil      // PPI 最近一个 ms
 
     // MARK: - 常量
     private let nameH10    = TelemetrySpec.deviceNameH10
@@ -199,29 +203,35 @@ final class PolarManager: NSObject, ObservableObject {
         scanStartedAt = Date()
         log("SCAN", "开始扫描 prefix=\(prefix ?? "nil")")
 
-        // 心跳打印
-        let timer = DispatchSource.makeTimerSource(queue: .main)
-        timer.schedule(deadline: .now() + 3, repeating: 3)
-        timer.setEventHandler { [weak self] in
-            guard let self = self else { return }
-            let names = self.discovered.map { "\($0.name) #\($0.id.prefix(4))@\($0.rssi)" }
-                                       .joined(separator: ", ")
-            self.log("SCAN", "心跳: 已发现 \(self.discovered.count) 台设备\(names.isEmpty ? "" : " [\(names)]")")
-        }
-        timer.resume()
-        scanHeartbeatTimer = timer
-
         scanDisposable = api
             .searchForDevice(withRequiredDeviceNamePrefix: prefix)
             .observe(on: MainScheduler.instance)
             .subscribe(onNext: { [weak self] info in
                 guard let self = self else { return }
-                let d = Discovered(id: info.deviceId, name: info.name, rssi: info.rssi, connectable: info.connectable)
-                if let idx = self.discovered.firstIndex(where: { $0.id == d.id }) {
-                    self.discovered[idx] = d
+                
+                let incoming = Discovered(id: info.deviceId, name: info.name, rssi: info.rssi, connectable: info.connectable)
+                
+                if let idx = self.discovered.firstIndex(where: { $0.id == incoming.id }) {
+                    // 保留旧电量，避免被置空
+                    let prev = self.discovered[idx]
+                    
+                    self.discovered[idx] = Discovered(
+                        id: incoming.id,
+                        name: incoming.name,
+                        rssi: incoming.rssi,
+                        connectable: incoming.connectable,
+                        batteryLevel: prev.batteryLevel
+                    )
+                    
+                    // 检查rssi的信号质量变化
+                    let rssiDelta = incoming.rssi - prev.rssi
+                    self.log("DISCOVERY",
+                             "更新设备: id=\(incoming.id) name=\(incoming.name) rssi \(prev.rssi)→\(incoming.rssi) (\(rssiDelta >= 0 ? "+" : "")\(rssiDelta)) connectable=\(incoming.connectable)")
+                    
                 } else {
-                    self.discovered.append(d)
-                    self.log("DISCOVERY", "首次发现: id=\(info.deviceId) name=\(info.name) rssi=\(info.rssi) connectable=\(info.connectable)")
+                    self.discovered.append(incoming)
+                    self.log("DISCOVERY",
+                             "发现设备: id=\(info.deviceId) name=\(info.name) rssi=\(info.rssi) connectable=\(info.connectable)")
                 }
             }, onError: { [weak self] err in
                 self?.isScanning = false
@@ -233,7 +243,6 @@ final class PolarManager: NSObject, ObservableObject {
     func stopScan() {
         scanDisposable?.dispose(); scanDisposable = nil
         isScanning = false
-        scanHeartbeatTimer?.cancel(); scanHeartbeatTimer = nil
 
         let elapsed = scanStartedAt.map { Date().timeIntervalSince($0) } ?? 0
         let names = discovered.map { "\($0.name)#\($0.id.prefix(4))" }.joined(separator: ", ")
@@ -396,6 +405,10 @@ final class PolarManager: NSObject, ObservableObject {
                     
                     // 计算ecg丢包
                     self.recordLoss(deviceId: deviceId, kind: .ecg, samples: uV.count, fs: 130)
+                    
+                    // 记录ecg最新值用于UI打印
+                    self.lastECGuV = uV.last
+                    
                 }, onError: { [weak self] err in
                     self?.log("ECG", "stream error[\(deviceId)]: \(err)")
                 })
@@ -581,6 +594,11 @@ final class PolarManager: NSObject, ObservableObject {
                     
                     // 丢包
                     self.recordLoss(deviceId: deviceId, kind: .ppg, samples: n, fs: self.ppgFsSelected)
+                    
+                    // 记录最新ppg 第一通道
+                    let ch1 = matrix.last?.first
+                    self.lastPPG1 = ch1
+                    
                 }, onError: { [weak self] err in
                     self?.log("PPG", "stream error[\(deviceId)]: \(err)")
                 })
@@ -611,6 +629,9 @@ final class PolarManager: NSObject, ObservableObject {
                         )
                         self.sendPacket(pkt)
                         self.log("PPI", "batch n=\(ppi.samples.count)")
+                        
+                        // 记录最新值
+                        self.lastPpiMs = Int(s.ppInMs)
                     }
                     //Task { @MainActor in AppStore.shared.markSent() }
                 }, onError: { [weak self] err in
