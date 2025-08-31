@@ -140,6 +140,8 @@ Polar 的 SDK 有一个容易忽略但对实验至关重要的差异：ECG/PPG/A
 
 真正的时间轴对齐发生在手机端。实验里最难的并不是让两条数据能“同时出现”，而是让它们在下游分析时能“对齐到同一条时间线”。这个需求通过 `BeatEventAligner` 实现：当 `RR/PPI` 这些“不等间隔事件”到来时，`Aligner` 会用设备送来的相对时间 + 本机稳定时钟去推算这个心搏到底“发生在什么时候”。这个推算结果以 `te`（time of event）写回每条 `RR/PPI` 事件。也就是说，`RR/PPI` 在 `UDP` 报文里不只是“间期数值”，还是“带精确事件时间戳的点过程”。后续一旦把 `XDF` 转成 `CSV`，就能看到 `PPI/RR` 除了 `ms` 之外，还有一列 `te`，它处在和 LSL `local_clock` 一致的时标上，和 `ECG/PPG/ACC` 的采样时标天然可对齐。我们没有把这件事丢给电脑端做，是因为跨机推断事件时间不仅会引入额外的不确定性，还会让桥接器背负与设备耦合的复杂逻辑；把它放回 iOS 侧，既贴近数据源，又便于结合 SDK 的已知节奏（例如 Verity 的 PPI 存在慢启动与批量回送），从源头上保证了“Beat 级时间轴”的可复现性。
 
+在复杂网络环境下，UDP 的大包被 IP 分片后更易在途中遗失某个分片而整体作废；同时，Polar 数据属于高频持续上报，若不控制单包尺寸与启停节奏，容易出现“丢包、乱序、状态抖动”等问题。项目在 iOS 端引入了两项稳态机制：尺寸限载（capping）与启停排队（per-device op queue）。前者在序列化的最后一步，按“负载上限（默认 1200B，可在设置页修改）”动态缩减批量样本数，确保每个 UDP 报文足够小，从源头规避 IP 分片；对等间隔流（ECG/ACC/PPG）会依据通道数与编码尺寸自动计算“本批最多能塞多少样本”，超过即切为多包发送；事件流（RR/PPI/HR/Marker）天然较小，通常无需切分。切分过程中样本顺序、时间戳与序列号完全保真，仅改变“每包承载的样本数”，并在调试日志与 Information 页（若开启）统计切分发生的次数、最小/最大/均值，便于回溯与容量评估。后者针对 Polar SDK 的“流启停是设备内状态机”这一特性，在每台设备内部维护一个串行操作队列：applySelection 先做集合差分（需要停的、需要起的），再把 stop/start 作为有序任务入队执行，同一时刻仅处理一个，并在上一个任务“完成/失败/释放订阅”后才继续下一个，从而消除因并发与重入造成的 "Already in state" 的错误。两项机制对上层透明：App 只关心“勾选了哪些信号”和“目标 UDP 地址”。它们既提高了抗网络抖动与稳定性，又避免对数据语义做任何篡改；是否启用“尺寸限载”与上限阈值，均可在设置页配置，默认值即适配常见 MTU 的安全水位。开发期可用 tcpdump 快速抽检：看到 UDP, length < 上限 即代表未触发 IP 分片（必要但不充分），结合 PC 端 LSL 的到达率/乱序统计即可闭环验证。
+
 ### UDP-LSL桥接
 
 发包设计秉持“保守而简单”的原则。手机端的 `UDPSenderService` 只做三件事：接受 AS 的目标地址设置（目前手动在 App 中录入电脑的局域网 IP 和端口，避免移动端 mDNS 各种边界问题），建立/维护 U`DP socket`，按序把 JSON 文本送出去。每条报文都带上本机时间戳与必要的元数据，便于电脑端在极端情况下做基本容错。App 端无须知道电脑端有没有 LabRecorder 正在录，甚至不知道有无桥接器在运行，只需“持续广播”。这让用户操作的故障模式可控：如果电脑端短时离线，手机端不会崩溃；桥接器恢复后能立即接续；LabRecorder 可在任何时刻开始或停止。
@@ -160,11 +162,22 @@ Polar 的 SDK 有一个容易忽略但对实验至关重要的差异：ECG/PPG/A
 
 **iOS 采集端（PolarBridge App）**
 
-- `AppStore.swift`（AS）：应用的“总控台”。持有全局状态（已发现设备、连接状态、可订阅能力、用户所选信号、UDP 目标等），协调页面与业务模块。对外暴露“我现在该干什么”的单一入口（连接/断开、开始/停止采集、发送标记等）。
+- `AppStore.swift`（全局状态 / 协调中心）：
+应用的“总控台”。单一数据源（Single Source of Truth），管理蓝牙可用性、设备连接摘要、信号选择、采集生命周期（开始/停止/计时）、Subject 信息（PID/SID）与 UI 派生状态；对 PolarManager 做选择下发（applySelectionToConnectedDevices()），并承接设置页的配置变更（UDP 目标、功能开关），统一广播给业务层。
+
+- `FeatureFlags.swift`（特性开关与参数）
+维护运行期的“策略级”配置：progressLogEnabled（采集进度卡可视化）、cappedTxEnabled（尺寸限载开关）、maxPacketBytes（单包上限，默认 1200B）。与设置页双向绑定，App 启动及变更时由 AppStore 拉通到 PolarManager / UDPSenderService。
+
+PolarManager.swift
     
-- `PolarManager.swift`（PM）：和 Polar BLE 设备打交道的唯一模块。负责扫描、连接、能力探测、逐流启动/停止（ECG/ACC/HR/RR/PPG/PPI），并把设备给的数据按**物理语义**封装成 JSON 包（见下一条）。
+- `PolarManager.swift`（设备接入 / 数据源头）
+对 Polar BLE SDK 的封装：扫描、连接、能力探测与订阅装配；为 ECG/ACC/PPG/HR/RR/PPI 建立 RxSwift 流并在回调里完成样本打包与UDP 发送；内置每设备串行操作队列，保证启停顺序化，消除 Already in state；实现尺寸限载（针对定频流按通道×分辨率计算批量上限，超出则切包）；保持序列号与时间戳一致性；发布设备电量、RSSI、发现列表与（可选）丢包估计等只读信息供 UI 订阅。
+
+- `UDPSenderService.swift`（轻量 UDP 传输层）
+管理 NWConnection、目标地址应用（applyTarget）与异步发送队列。聚焦“把给定字节可靠送出”，不参与业务语义；尺寸限载逻辑由 PolarManager 在序列化前决定，服务层只负责排队与回调。
     
-- `TelemetryModels.swift`：**数据协议的事实标准**。不同信号有不同的 JSON 结构与单位：
+- `TelemetryModels.swift`（传输模型）
+**数据协议的事实标准**。统一定义 UDP JSON 载荷：数据类型（hr/rr/ppi/ecg/acc/ppg/marker）、设备/来源、序列号、采样率、通道、单位与时间戳等；确保上下游（Python/LSL）零歧义解析。不同信号有不同的 JSON 结构与单位：
     
     - ECG：`{"type":"ecg","fs":130,"uV":[…],…}`
         
@@ -180,9 +193,23 @@ Polar 的 SDK 有一个容易忽略但对实验至关重要的差异：ECG/PPG/A
         
     - 标记：`{"type":"marker","label":"baseline_start",…}`
         
-- `BeatEventAligner.swift`：把 **RR/PPI** 这种“不等间隔事件”映射到**统一的本地时间轴**。计算得到精确事件时间 `te` 并写回到每个 RR/PPI 事件里（下游 CSV 会落这一列）。
-    
-- `UDPSenderService.swift`：最小可用的 UDP 客户端。AS 负责告诉它目标 IP:PORT；它只管按顺序把 JSON 文本包发出去。
+- `BeatEventAligner.swift`（心搏事件配时）
+针对 RR/PPI 推导逐心搏时间标注，提供与 1 Hz HR 对齐所需的时间语义支撑（分析侧再做窗口化聚合）。
+
+- `CollectView`
+采集操作主界面：信号选择、开始/停止、阶段标签；依据 FeatureFlags 决定是否显示采集进度卡。
+
+- `ProgressLogView` / `ProgressLogViewModel`
+“打印机风格”瀑布流：按固定步进（默认 2 s）对实时数据做抽样与格式化输出，黑底绿字、分割线与 MARK 高亮；完全受 progressLogEnabled 控制，不参与任何业务决策。
+
+- `SettingsView` / `UdpSettingsSheetView` / `HomeView`
+设置入口与界面：UDP 目标、尺寸限载开关与上限、是否显示进度卡；保存时调用 AppStore 同步到各层。
+
+- `BluetoothManager.swift`
+独立管理 CBCentralManager，向上发布系统级蓝牙状态；遵循“系统 → Store → VM → UI”的单向数据流。
+
+- `SubjectInfoSheetView.swift`
+采集参与者信息（PID/SID），写入持久化并通过 AppStore 同步全局。
     
 - `HomeView.swift` / `CollectView.swift` / `DeviceState.swift`：UI 与状态渲染。Home 负责发现/连接；Collect 负责信号选择与打标；`DeviceState` 是设备与信号的枚举/映射（含 `sfSymbol`、前缀 VHR/HHR/VACC/HACC 等）。
     
