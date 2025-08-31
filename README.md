@@ -1,6 +1,6 @@
 ## Polar Bridge
 
-在单一实验环境下，将 Polar H10 等生理传感器的实时数据通过手机端（iOS）采集，经局域网 UDP（User Datagram Protocol，用户数据报协议）发送至上位机，即电脑端，由桥接器（以py脚本的方式实现）转换为 LSL（Lab Streaming Layer，实验室流层）数据流，最终用 LabRecorder 录制为 XDF（Extensible Data Format，可扩展数据格式）文件，供后续统计分析与可视化使用。
+本项目将 Polar 生理传感器（ H10、Verity等 ）的实时数据通过手机端（iOS）采集，经局域网 UDP（User Datagram Protocol，用户数据报协议）发送至上位机，即电脑端，由桥接器（以py脚本的方式实现）转换为 LSL（Lab Streaming Layer，实验室流层）数据流，最终用 LabRecorder 录制为 XDF（Extensible Data Format，可扩展数据格式）文件，供后续统计分析与可视化使用。
 
 本项目的目标场景是心理与人机实验中的多模态生理信号采集与对齐：例如在“基线/诱导/干预”三阶段范式里，同时记录Polar设备，如Verity Senser、H10等提供的心率（HR）、心搏间期（RR）、心电图（ECG）、PPI、PPG与三轴加速度（ACC），配合实验标记（Markers）保证后续分段与统计检验的可重复性。
 
