@@ -1,10 +1,10 @@
 数据导出结果报告
 源文件: sub-P001_ses-S001_task-Default_run-001_all.xdf
 
-共生成 7 个 CSV 文件：
+共生成 9 个 CSV 文件：
 
 文件: sub-P001_ses-S001_task-Default_run-001_all_ppg_verity.csv
-形状: 6208 行 × 5 列
+形状: 3719 行 × 5 列
 行含义: 每行是一条PPG记录（按 time_lsl 升序）
 列说明:
   - time_lsl: LSL 时间戳（秒，local_clock 单调时钟）
@@ -18,7 +18,7 @@
   · 常见做法：带通/去漂移/归一化，再进行脉搏定位或与 PPI 对齐。
 
 文件: sub-P001_ses-S001_task-Default_run-001_all_ecg_h10.csv
-形状: 14600 行 × 2 列
+形状: 8906 行 × 2 列
 行含义: 每行是一条ECG记录（按 time_lsl 升序）
 列说明:
   - time_lsl: LSL 时间戳（秒，local_clock 单调时钟）
@@ -26,8 +26,30 @@
 数据说明:
   · 单位微伏（uV）。H10 提供等采样 ECG（典型 130Hz）。
 
-文件: sub-P001_ses-S001_task-Default_run-001_all_hr_h10.csv
-形状: 114 行 × 2 列
+文件: sub-P001_ses-S001_task-Default_run-001_all_acc_verity.csv
+形状: 3362 行 × 4 列
+行含义: 每行是一条ACC记录（按 time_lsl 升序）
+列说明:
+  - time_lsl: LSL 时间戳（秒，local_clock 单调时钟）
+  - x_mG: 加速度 X 轴（mG）
+  - y_mG: 加速度 Y 轴（mG）
+  - z_mG: 加速度 Z 轴（mG）
+数据说明:
+  · 单位 mG（毫重力）。可用于活动水平估计与运动伪迹识别。
+
+文件: sub-P001_ses-S001_task-Default_run-001_all_acc_h10.csv
+形状: 3420 行 × 4 列
+行含义: 每行是一条ACC记录（按 time_lsl 升序）
+列说明:
+  - time_lsl: LSL 时间戳（秒，local_clock 单调时钟）
+  - x_mG: 加速度 X 轴（mG）
+  - y_mG: 加速度 Y 轴（mG）
+  - z_mG: 加速度 Z 轴（mG）
+数据说明:
+  · 单位 mG（毫重力）。可用于活动水平估计与运动伪迹识别。
+
+文件: sub-P001_ses-S001_task-Default_run-001_all_hr_verity.csv
+形状: 69 行 × 2 列
 行含义: 每行是一条HR记录（按 time_lsl 升序）
 列说明:
   - time_lsl: LSL 时间戳（秒，local_clock 单调时钟）
@@ -35,8 +57,8 @@
 数据说明:
   · bpm 为设备侧瞬时心率。建议与 RR/PPI 推导的一致性作校验。
 
-文件: sub-P001_ses-S001_task-Default_run-001_all_hr_verity.csv
-形状: 111 行 × 2 列
+文件: sub-P001_ses-S001_task-Default_run-001_all_hr_h10.csv
+形状: 69 行 × 2 列
 行含义: 每行是一条HR记录（按 time_lsl 升序）
 列说明:
   - time_lsl: LSL 时间戳（秒，local_clock 单调时钟）
@@ -45,7 +67,7 @@
   · bpm 为设备侧瞬时心率。建议与 RR/PPI 推导的一致性作校验。
 
 文件: sub-P001_ses-S001_task-Default_run-001_all_ppi_verity.csv
-形状: 138 行 × 7 列
+形状: 66 行 × 7 列
 行含义: 每行是一条PPI记录（按 time_lsl 升序）
 列说明:
   - time_lsl: LSL 时间戳（秒，local_clock 单调时钟）
@@ -60,7 +82,7 @@
   · 可选标志位：blockerBit（1=此拍无效）、skinContactStatus（1=皮肤接触良好）、skinContactSupported（1=支持检测）。
 
 文件: sub-P001_ses-S001_task-Default_run-001_all_rr_h10.csv
-形状: 137 行 × 3 列
+形状: 78 行 × 3 列
 行含义: 每行是一条RR记录（按 time_lsl 升序）
 列说明:
   - time_lsl: LSL 时间戳（秒，local_clock 单调时钟）
@@ -70,7 +92,7 @@
   · RR 来自 H10（心电 R-R 间期），单位毫秒。若含 te 列，为 beat 事件时间（LSL 对齐后）。
 
 文件: sub-P001_ses-S001_task-Default_run-001_all_markers.csv
-形状: 0 行 × 2 列
+形状: 5 行 × 2 列
 行含义: 每行是一条Markers记录（按 time_lsl 升序）
 列说明:
   - time_lsl: LSL 时间戳（秒，local_clock 单调时钟）

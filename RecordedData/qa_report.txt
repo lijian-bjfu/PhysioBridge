@@ -1,12 +1,16 @@
 [DIR] /Users/lijian/Desktop/GitHub/polar_bridge/RecordedData
-[FOUND] HR(h10, verity), RR(h10), PPI(verity), PPG(verity), ACC(-), ECG(h10), MARKERS(unknown)
-[PPG] (verity) fs≈54.57Hz span=113.75s completeness=0.992 -> PASS | 规则: 值≥0.990 为 PASS；0.970≤值<0.990 为 WARN；值<0.970 为 FAIL
-[PPG] (verity) channel consistency mean=0.997 min=0.993 -> PASS | 规则: 值≥0.600 为 PASS；0.300≤值<0.600 为 WARN；值<0.300 为 FAIL
-[HR vs RR] MAE=3.54 bpm -> WARN | 规则: 值≤2.000 bpm 为 PASS；2.000 bpm<值≤5.000 bpm 为 WARN；值>5.000 bpm 为 FAIL
-[RR Quality] (h10) Beats=137, Mean HR=72.5 bpm, SDNN=37.2 ms, RMSSD=21.8 ms, Artifacts(>20%)=0.00%
-[HR vs PPI] MAE=8.42 bpm -> FAIL | 规则: 值≤2.000 bpm 为 PASS；2.000 bpm<值≤5.000 bpm 为 WARN；值>5.000 bpm 为 FAIL
-[PPI Quality] (verity) Beats=138, Mean HR=73.1 bpm, SDNN=76.1 ms, RMSSD=113.6 ms, Artifacts(>20%)=3.65%
-[ECG] (h10) fs≈128.94Hz span=113.22s completeness=0.992 -> PASS | 规则: 值≥0.990 为 PASS；0.980≤值<0.990 为 WARN；值<0.980 为 FAIL
+[FOUND] HR(h10, verity), RR(h10), PPI(verity), PPG(verity), ACC(verity, h10), ECG(h10), MARKERS(unknown)
+[PPG] (verity) fs≈54.86Hz span=67.77s completeness=0.998 -> PASS | 规则: 值≥0.990 为 PASS；0.970≤值<0.990 为 WARN；值<0.970 为 FAIL
+[PPG] (verity) channel consistency mean=0.966 min=0.921 -> PASS | 规则: 值≥0.600 为 PASS；0.300≤值<0.600 为 WARN；值<0.300 为 FAIL
+[ACC] (verity) fs≈50.80Hz span=66.16s completeness=0.977 -> WARN | 规则: 值≥0.980 为 PASS；0.950≤值<0.980 为 WARN；值<0.950 为 FAIL
+[ACC] (verity) motion-high ratio=0.074 -> PASS | 规则: 值≤0.100 为 PASS；0.100<值≤0.300 为 WARN；值>0.300 为 FAIL
+[ACC] (h10) fs≈50.61Hz span=67.56s completeness=1.012 -> PASS | 规则: 值≥0.980 为 PASS；0.950≤值<0.980 为 WARN；值<0.950 为 FAIL
+[ACC] (h10) motion-high ratio=0.316 -> FAIL | 规则: 值≤0.100 为 PASS；0.100<值≤0.300 为 WARN；值>0.300 为 FAIL
+[HR vs RR] -> N/A | 原因: HR(h10)与RR(h10)数据流没有时间重叠。
+[RR Quality] (h10) Beats=78, Mean HR=67.8 bpm, SDNN=34.8 ms, RMSSD=26.3 ms, Artifacts(>20%)=0.00%
+[HR vs PPI] -> N/A | 原因: HR(verity)与PPI(verity)数据流没有时间重叠。
+[PPI Quality] (verity) Beats=66, Mean HR=68.4 bpm, SDNN=76.6 ms, RMSSD=107.9 ms, Artifacts(>20%)=3.08%
+[ECG] (h10) fs≈130.16Hz span=68.42s completeness=1.001 -> PASS | 规则: 值≥0.990 为 PASS；0.980≤值<0.990 为 WARN；值<0.980 为 FAIL
 
 [OVERALL] -> FAIL
 

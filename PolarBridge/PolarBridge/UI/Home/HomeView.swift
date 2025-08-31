@@ -20,7 +20,7 @@ struct HomeView: View {
     
     // 统一弹窗类型
     private enum ActiveModal: String, Identifiable {
-        case udp, subject
+        case udp, subject, settings
         var id: String { rawValue }
     }
 
@@ -163,6 +163,12 @@ struct HomeView: View {
                 }
                 .padding(.vertical, 16)
             }
+            // 顶部设置按钮
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { activeModal = .settings } label: { Image(systemName: "gearshape") }
+                }
+            }
             // 设置UDP的弹窗
             .sheet(item: $activeModal) { modal in
                 switch modal {
@@ -192,6 +198,8 @@ struct HomeView: View {
                             if Thread.isMainThread { apply() } else { DispatchQueue.main.async { apply() } }
                         }
                     )
+                case .settings:
+                    SettingsView()
                 }
             }
 

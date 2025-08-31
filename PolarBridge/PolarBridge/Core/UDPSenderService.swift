@@ -15,6 +15,9 @@ final class UDPSenderService {
     private var port: UInt16 = UInt16(clamping: AppConfig.defaultUDPPort)
     private var connection: NWConnection? = nil
     private let queue = DispatchQueue(label: "udp.sender.service")
+    
+    // 串行队列，保证出包有序
+    private let sendQueue = DispatchQueue(label: "udp.sender.queue")
 
     func update(host: String, port: Int) {
         self.host = host
@@ -52,20 +55,22 @@ final class UDPSenderService {
         conn.start(queue: queue)
     }
 
-    func send(_ text: String, onDelivered: (() -> Void)? = nil) {
-        let data = Data(text.utf8)
-        if connection == nil { recreateConnection() }
-        connection?.send(content: data, completion: .contentProcessed({ err in
-            if let err = err {
-                print("[UDPSenderService][ERROR] \(err)")
-            } else {
-                print("[UDPSenderService] send ok")
-                // ★ 统一切回主线程再调回调
-                if let onDelivered = onDelivered {
-                    Task { @MainActor in onDelivered() }
+    func send(_ string: String, onDelivered: (() -> Void)? = nil) {
+        guard let data = string.data(using: .utf8) else { return }
+        // 排队发送
+        sendQueue.async { [weak self] in
+            guard let self else { return }
+            self.connection?.send(content: data, completion: .contentProcessed({ err in
+                if let err = err {
+                    print("[UDPSenderService][ERROR] \(err)")
+                } else {
+                    // 统一切回主线程再调回调
+                    if let onDelivered = onDelivered {
+                        Task { @MainActor in onDelivered() }
+                    }
                 }
-            }
-        }))
+            }))
+        }
     }
 }
 

@@ -29,6 +29,9 @@ struct CollectView: View {
     @State private var displayTick: Int = 0
     @State private var uiTimer: Timer?
     
+    // 根据设置页面（settingsView）判断是否显示"采集进度"卡片
+    @AppStorage("feature.progressLog.enabled") private var progressLogEnabled: Bool = FeatureFlags.progressLogEnabled
+    
     // 需要以store初始化的ViewModel必须明确地使用主线程
     @StateObject private var progressVM: ProgressLogViewModel
     init() {
@@ -266,7 +269,8 @@ private extension CollectView {
     
     // 显示代码上传流的界面
     private var showProgressCard: Bool {
-        store.isCollecting            // 严格跟随开始/停止
+        // 是否显示信号信号流窗口的条件
+        store.isCollecting && progressLogEnabled
         // 如果你想“还得选了信号才显示”，用：
         // store.isCollecting && !store.selectedSignals.isEmpty
     }

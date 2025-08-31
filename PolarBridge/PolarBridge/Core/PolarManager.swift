@@ -22,6 +22,21 @@ final class PolarManager: NSObject, ObservableObject {
 
     // MARK: - Singleton
     static let shared = PolarManager()
+    
+    // MARK: debug
+    // 详细日志总开关（从 FeatureFlags 读）
+    private var verbose: Bool { FeatureFlags.consoleVerbose }
+
+    // 仅用于“吵”的调试输出
+    private func vlog(_ tag: String, _ msg: String) {
+        guard verbose else { return }
+        log(tag, msg)
+    }
+    
+    #if DEBUG
+    // deviceId -> kind -> count
+    private var dbgStartCount: [String: [SignalKind: Int]] = [:]
+    #endif
 
     // MARK: - UI 可观察状态
     @Published var blePoweredOn: Bool = false
@@ -91,6 +106,29 @@ final class PolarManager: NSObject, ObservableObject {
     @Published var lastECGuV: Int? = nil      // ECG 最近一个 uV
     @Published var lastPPG1: Int? = nil       // PPG ch1 最近一个 a.u.
     @Published var lastPpiMs: Int? = nil      // PPI 最近一个 ms
+    
+    // HR 日志节流：最近一次记录的 bpm 及时间
+    private var lastLoggedHR: UInt8 = 255
+    private var lastHRLogAt: TimeInterval = 0
+
+    
+    // MARK: - 串行队列：按设备串行执行 start/stop，避免“Already in state”
+    private enum StreamOp {
+        case stop(SignalKind)
+        case start(SignalKind)
+        
+        var description: String {
+            switch self {
+            case .stop(let k):  return "stop(\(k.title))"
+            case .start(let k): return "start(\(k.title))"
+            }
+        }
+    }
+
+    private var opQueueByDevice: [String: [StreamOp]] = [:]   // 设备 -> 待执行操作队列
+    private var opProcessingByDevice: Set<String> = []        // 正在执行中的设备集合
+    private let opSerial = DispatchQueue(label: "pb.stream.ops", qos: .userInitiated)
+
 
     // MARK: - 常量
     private let nameH10    = TelemetrySpec.deviceNameH10
@@ -118,11 +156,211 @@ final class PolarManager: NSObject, ObservableObject {
         return "Polar"
     }
 
+    // MARK: - 传输数据
     private func sendPacket<T: Encodable>(_ packet: T) {
         if let json = TelemetryEncoder.encodeToJSONString(packet) {
             UDPSenderService.shared.send(json)
         }
     }
+    // 限制发送数据的大小
+    private func sendPPGCapped(
+        devLabel: String,
+        fs: Int,                      // 选用的采样率
+        seqCounter: inout UInt64,     // 对应 self.seqPPG
+        baseTime: TimeInterval,       // 本批 t_device 基准
+        matrix: [[Int]]               // [样本行][通道] 的矩阵
+    ) {
+        let cap = FeatureFlags.maxPacketBytes
+        let nTotal = matrix.count
+        guard nTotal > 0 else { return }
+        let ch = matrix.first?.count ?? 0
+        var start = 0
+
+        // 启发式起点：64 行或整批大小的较小者
+        var guess = min(64, nTotal)
+
+        while start < nTotal {
+            var n = min(guess, nTotal - start)
+            var sent = false
+
+            while n > 0 {
+                let end = start + n
+                let slice = Array(matrix[start..<end])
+
+                // 每段的 t_device = 基准 + 偏移样本 / fs
+                let t0 = baseTime + Double(start) / Double(fs)
+
+                // 递增序号（每个分段一个 seq）
+                seqCounter &+= 1
+
+                // 构包（沿用已有的 PPGPacket 字段命名）
+                let pkt = PPGPacket(
+                    device: devLabel,
+                    t_device: t0,
+                    seq: seqCounter,
+                    fs: fs,
+                    n: slice.count,
+                    ch: ch,
+                    mU: slice
+                )
+
+                if let json = TelemetryEncoder.encodeToJSONString(pkt),
+                   json.utf8.count <= cap {
+                    UDPSenderService.shared.send(json)
+                    start = end
+                    guess = max(8, n)   // 下一次尝试用本次成功的大小，最低 8
+                    sent = true
+                    break
+                } else {
+                    // 超阈值就缩小，二分逼近
+                    n = n / 2
+                }
+            }
+
+            // 理论上不会走到这里；兜底：1 个样本也打不过去就强行发一行
+            if !sent {
+                let slice = [matrix[start]]
+                let t0 = baseTime + Double(start) / Double(fs)
+                seqCounter &+= 1
+                let pkt = PPGPacket(
+                    device: devLabel,
+                    t_device: t0,
+                    seq: seqCounter,
+                    fs: fs,
+                    n: 1,
+                    ch: ch,
+                    mU: slice
+                )
+                if let json = TelemetryEncoder.encodeToJSONString(pkt) {
+                    UDPSenderService.shared.send(json)
+                }
+                start += 1
+                guess = 1
+            }
+        }
+    }
+    
+    // 封顶发送：ECG（一维）
+    private func sendECGCapped(
+        devLabel: String,
+        fs: Int,
+        seqCounter: inout UInt64,
+        baseTime: TimeInterval,
+        uV: [Int]
+    ) {
+        let cap = FeatureFlags.maxPacketBytes
+        let nTotal = uV.count
+        guard nTotal > 0 else { return }
+
+        var start = 0
+        var guess = min(256, nTotal) // ECG 一维，起点可以稍大一点
+
+        while start < nTotal {
+            var n = min(guess, nTotal - start)
+            var sent = false
+
+            while n > 0 {
+                let end = start + n
+                let slice = Array(uV[start..<end])
+                let t0 = baseTime + Double(start) / Double(fs)
+                seqCounter &+= 1
+
+                let pkt = ECGPacket(device: devLabel, t_device: t0, seq: seqCounter, fs: fs, uV: slice, n: slice.count)
+                if let json = TelemetryEncoder.encodeToJSONString(pkt),
+                   json.utf8.count <= cap {
+                    UDPSenderService.shared.send(json)
+                    start = end
+                    guess = max(32, n) // 记住本次成功规模
+                    sent = true
+                    break
+                } else {
+                    n = n / 2
+                }
+            }
+
+            if !sent {
+                let slice = [uV[start]]
+                let t0 = baseTime + Double(start) / Double(fs)
+                seqCounter &+= 1
+                let pkt = ECGPacket(device: devLabel, t_device: t0, seq: seqCounter, fs: fs, uV: slice, n: 1)
+                if let json = TelemetryEncoder.encodeToJSONString(pkt) {
+                    UDPSenderService.shared.send(json)
+                }
+                start += 1
+                guess = 1
+            }
+        }
+    }
+
+    // 封顶发送：ACC（三通道矩阵，H10 & Verity 通用）
+    private func sendACCCapped(
+        devLabel: String,
+        fs: Int,
+        rangeG: Int,
+        seqCounter: inout UInt64,
+        baseTime: TimeInterval,
+        triples: [[Int]]          // [样本][3]
+    ) {
+        let cap = FeatureFlags.maxPacketBytes
+        let nTotal = triples.count
+        guard nTotal > 0 else { return }
+
+        var start = 0
+        var guess = min(128, nTotal)
+
+        while start < nTotal {
+            var n = min(guess, nTotal - start)
+            var sent = false
+
+            while n > 0 {
+                let end = start + n
+                let slice = Array(triples[start..<end])
+                let t0 = baseTime + Double(start) / Double(fs)
+                seqCounter &+= 1
+
+                let pkt = ACCPacket(
+                    device: devLabel,
+                    t_device: t0,
+                    seq: seqCounter,
+                    fs: fs,
+                    mG: slice,
+                    n: slice.count,
+                    range_g: rangeG
+                )
+                if let json = TelemetryEncoder.encodeToJSONString(pkt),
+                   json.utf8.count <= cap {
+                    UDPSenderService.shared.send(json)
+                    start = end
+                    guess = max(16, n)
+                    sent = true
+                    break
+                } else {
+                    n = n / 2
+                }
+            }
+
+            if !sent {
+                let slice = [triples[start]]
+                let t0 = baseTime + Double(start) / Double(fs)
+                seqCounter &+= 1
+                let pkt = ACCPacket(
+                    device: devLabel,
+                    t_device: t0,
+                    seq: seqCounter,
+                    fs: fs,
+                    mG: slice,
+                    n: 1,
+                    range_g: rangeG
+                )
+                if let json = TelemetryEncoder.encodeToJSONString(pkt) {
+                    UDPSenderService.shared.send(json)
+                }
+                start += 1
+                guess = 1
+            }
+        }
+    }
+
     
     // MARK: - 丢包计算工具
     // 统计窗口：每台设备 × 每种连续流，对最近 60s 到达样本计数
@@ -166,6 +404,15 @@ final class PolarManager: NSObject, ObservableObject {
             loss60sByDeviceAndKind[deviceId] = byKind
         }
     }
+    // 移除某设备某信号的滑窗与已发布值
+    private func clearLoss(deviceId: String, kind: SignalKind) {
+        let k = lwKey(deviceId, kind)
+        lossWindows.removeValue(forKey: k)
+        var byKind = loss60sByDeviceAndKind[deviceId] ?? [:]
+        byKind.removeValue(forKey: kind)
+        loss60sByDeviceAndKind[deviceId] = byKind
+    }
+
 
 
     // MARK: - 初始化
@@ -196,7 +443,7 @@ final class PolarManager: NSObject, ObservableObject {
         ppiDisposable?.dispose()
     }
 
-    // MARK: - 扫描
+    // MARK: - 扫描设备
     func startScan(prefix: String? = "Polar") {
         guard scanDisposable == nil else { return }
         isScanning = true
@@ -250,7 +497,7 @@ final class PolarManager: NSObject, ObservableObject {
         scanStartedAt = nil
     }
 
-    // MARK: - 连接控制
+    // MARK: - 连接设备
     func connect(id: String) {
         if isScanning { stopScan() }
         do {
@@ -272,7 +519,7 @@ final class PolarManager: NSObject, ObservableObject {
         }
     }
 
-    // MARK: - 选择/启停编排（每台设备独立）
+    // MARK: - 订阅用户选择信号
     @MainActor
     func applySelection(deviceId: String, kinds: Set<SignalKind>) {
         selectedKindsByDevice[deviceId] = kinds
@@ -280,10 +527,34 @@ final class PolarManager: NSObject, ObservableObject {
         // 差分只针对本设备
         let toStop  = was.subtracting(kinds)
         let toStart = kinds.subtracting(was)
+        
+        // MARK: debug 数据溯源2-该函数被调用了几次，以及是谁触发的
+        #if DEBUG
+        if verbose {
+            let op = AppStore.shared.currentOpID
+            let reason = AppStore.shared.lastApplyReason
+            let caller = Thread.callStackSymbols.dropFirst(2).prefix(3).joined(separator: " | ")
+            log("STREAM", "[\(op)] applySelection[\(deviceId.prefix(4))] was=\(was.map{$0.title}) new=\(kinds.map{$0.title}) stop=\(toStop.map{$0.title}) start=\(toStart.map{$0.title})")
+            log("STREAM", "[\(op)] callstack: \(caller)")
+            log("STREAM", "[reason=\(reason)] applySelection[\(deviceId.prefix(4))] was=\(was.map{$0.title}) new=\(kinds.map{$0.title}) stop=\(toStop.map{$0.title}) start=\(toStart.map{$0.title})")
+        }
+        #endif
 
+        
+        
+        // 如果没有任何变化，直接同步 active 集合并返回
+        if toStop.isEmpty && toStart.isEmpty {
+            activeStreamsByDevice[deviceId] = kinds
+            log("STREAM", "applySelection[\(deviceId.prefix(4))] -> NOOP")
+            return
+        }
         // 先停再启，避免抖动
-        for k in toStop  { stop(kind: k, deviceId: deviceId) }
-        for k in toStart { start(kind: k, deviceId: deviceId) }
+        // for k in toStop  { stop(kind: k, deviceId: deviceId) }
+        // for k in toStart { start(kind: k, deviceId: deviceId) }
+        
+        // 不再直接 for 循环 start/stop，而是改为入队
+        enqueue(deviceId: deviceId, stops: Array(toStop), starts: Array(toStart))
+
 
         // HR/RR 底层订阅：只要本设备勾选了 HR 或 RR，就确保存在
         let needHR = kinds.contains(.hhr) || kinds.contains(.vhr) || kinds.contains(.rr) || kinds.contains(.ppi)
@@ -303,10 +574,65 @@ final class PolarManager: NSObject, ObservableObject {
         ppiDisposable?.dispose();  ppiDisposable  = nil
 
         activeStreamsByDevice.removeAll()
+        
+        opQueueByDevice.removeAll()
+        opProcessingByDevice.removeAll()
+        
+        lastECGuV = nil
+        lastPPG1  = nil
+        lastPpiMs = nil
+
+        lossWindows.removeAll()
+        loss60sByDeviceAndKind.removeAll()
+
+        
         log("STREAM", "stopAllStreams")
     }
+    
+    // MARK: - 队列化：串行执行 start/stop（主线程内真正做、队列只负责排程）
+    private func enqueue(deviceId: String, stops: [SignalKind], starts: [SignalKind]) {
+        opSerial.async {
+            var q = self.opQueueByDevice[deviceId] ?? []
+            // 先 stop 再 start，按名字稳定排序，避免顺序抖动
+            for k in stops.sorted(by: { $0.rawValue < $1.rawValue })  { q.append(.stop(k)) }
+            for k in starts.sorted(by: { $0.rawValue < $1.rawValue }) { q.append(.start(k)) }
+            self.opQueueByDevice[deviceId] = q
+            self.processNextOp(deviceId)
+        }
+    }
 
-    // MARK: - HR/RR（每设备一份）
+    private func processNextOp(_ deviceId: String) {
+        // 串行保护：同一时间每台设备只跑一个操作
+        opSerial.async { [weak self] in
+            guard let self else { return }
+            if self.opProcessingByDevice.contains(deviceId) { return }
+            guard var q = self.opQueueByDevice[deviceId], !q.isEmpty else { return }
+
+            self.opProcessingByDevice.insert(deviceId)
+            let op = q.removeFirst()
+            self.opQueueByDevice[deviceId] = q
+
+            // 在主线程真正执行 start/stop（与现有代码一致）
+            DispatchQueue.main.async {
+                switch op {
+                case .stop(let k):
+                    self.stop(kind: k, deviceId: deviceId)
+                case .start(let k):
+                    self.start(kind: k, deviceId: deviceId)
+                }
+                self.vlog("STREAM", "queue[\(deviceId.prefix(4))] did \(op)")
+
+                // 给底层 GATT 一个“喘气”时间，避免 back-to-back 引发 "Already in state"
+                self.opSerial.asyncAfter(deadline: .now() + 0.15) {
+                    self.opProcessingByDevice.remove(deviceId)
+                    self.processNextOp(deviceId) // 递归拉起队列的下一项
+                }
+            }
+        }
+    }
+
+
+    // MARK: - startHr(.. 采集HR/RR
     private func ensureHrStream(id: String) {
         if hrDisposableById[id] != nil { return }
         startHr(id: id)
@@ -330,7 +656,13 @@ final class PolarManager: NSObject, ObservableObject {
                     self.seqHR &+= 1
                     let p = HRPacket(device: devLabel, t_device: tHost, seq: self.seqHR, bpm: Int(s.hr))
                     self.sendPacket(p)
-                    self.log("HR", "\(devLabel) start bpm=\(s.hr)")
+                    
+                    let now = Date().timeIntervalSince1970
+                    if self.lastLoggedHR != s.hr || now - self.lastHRLogAt > 3 {
+                        self.log("HR", "\(devLabel) bpm=\(s.hr)")
+                        self.lastLoggedHR = s.hr
+                        self.lastHRLogAt = now
+                    }
                     //Task { @MainActor in AppStore.shared.markSent() }
                 }
 
@@ -343,7 +675,7 @@ final class PolarManager: NSObject, ObservableObject {
                         self.seqRR &+= 1
                         let prr = RRPacket(device: devLabel, t_device: tHost, seq: self.seqRR, ms: rr, te: te)
                         self.sendPacket(prr)
-                        self.log("RR", "\(devLabel) start")
+                        self.vlog("RR", "\(devLabel) start")
                         //Task { @MainActor in AppStore.shared.markSent() }
                     }
                 }
@@ -362,10 +694,19 @@ final class PolarManager: NSObject, ObservableObject {
         hrDisposableById.removeAll()
     }
 
-    // MARK: - 具体信号启停（仅作用于传入 deviceId）
+    // MARK: - star(.. 采集ECG, ACC, PPI, PPG
     private func start(kind: SignalKind, deviceId: String) {
+        // MARK: debug
+        #if DEBUG
+        if verbose{
+            let c = (dbgStartCount[deviceId]?[kind] ?? 0) + 1
+            dbgStartCount[deviceId, default: [:]][kind] = c
+            log(kind.shortDesc, "[diag] start() entered x\(c)")
+        }
+        #endif
+        
         let dev = deviceLabel(for: deviceId)
-
+        
         switch kind {
 
         case .hhr, .vhr, .rr:
@@ -396,12 +737,24 @@ final class PolarManager: NSObject, ObservableObject {
                     guard let self = self else { return }
                     // 只看该设备的激活集
                     guard (self.activeStreamsByDevice[deviceId] ?? []).contains(.ecg) else { return }
-                    self.seqECG &+= 1
                     let t = Date().timeIntervalSince1970
                     let uV = ecg.map { Int($0.voltage) }
-                    let pkt = ECGPacket(device: dev, t_device: t, seq: self.seqECG, fs: 130, uV: uV, n: uV.count)
-                    self.sendPacket(pkt)
-                    self.log("ECG", "batch n=\(uV.count)")
+                    
+                    if FeatureFlags.cappedTxEnabled {
+                        self.sendECGCapped(
+                            devLabel: dev,
+                            fs: 130,                 // 你上面挑的就是 130
+                            seqCounter: &self.seqECG,
+                            baseTime: t,
+                            uV: uV
+                        )
+                        self.log("ECG", "capped batch n=\(uV.count)")
+                    } else {
+                        self.seqECG &+= 1
+                        let pkt = ECGPacket(device: dev, t_device: t, seq: self.seqECG, fs: 130, uV: uV, n: uV.count)
+                        self.sendPacket(pkt)
+                        self.log("ECG", "batch n=\(uV.count)")
+                    }
                     
                     // 计算ecg丢包
                     self.recordLoss(deviceId: deviceId, kind: .ecg, samples: uV.count, fs: 130)
@@ -432,7 +785,7 @@ final class PolarManager: NSObject, ObservableObject {
                     let rgSet = Array(s[.range] ?? []).sorted()
                     let rsSet = Array(s[.resolution] ?? []).sorted()
                     
-                    self.log("ACC", "H10 available settings: sr=\(srSet) range=\(rgSet) res=\(rsSet)")
+                    //self.log("ACC", "H10 available settings: sr=\(srSet) range=\(rgSet) res=\(rsSet)")
                     
                     // 目标优先 50Hz、±4G；不可用时兜底为集合中的最小可用值
                     // 如果 H10 实际没有 range 键，就不会把 .range 放进设置，避免无效参数
@@ -461,14 +814,30 @@ final class PolarManager: NSObject, ObservableObject {
                 .subscribe(onNext: { [weak self] acc in
                     guard let self = self else { return }
                     guard (self.activeStreamsByDevice[deviceId] ?? []).contains(.hacc) else { return }
-                    self.seqHACC &+= 1
+                    
                     let t = Date().timeIntervalSince1970
                     let triples = acc.map { [Int($0.x), Int($0.y), Int($0.z)] }
-                    let pkt = ACCPacket(device: dev, t_device: t, seq: self.seqHACC, fs: 50, mG: triples, n: triples.count, range_g: 4)
-                    self.sendPacket(pkt)
+                    let fsInt = selSr == 0 ? 50 : Int(selSr)
+                    
+                    if FeatureFlags.cappedTxEnabled {
+                        self.sendACCCapped(
+                            devLabel: dev,
+                            fs: fsInt,
+                            rangeG: 4,
+                            seqCounter: &self.seqHACC,
+                            baseTime: t,
+                            triples: triples
+                        )
+                        self.vlog("ACC", "capped batch n=\(triples.count) ch=3 (H10)")
+                    } else {
+                        self.seqHACC &+= 1
+                        let pkt = ACCPacket(device: dev, t_device: t, seq: self.seqHACC, fs: fsInt, mG: triples, n: triples.count, range_g: 4)
+                        self.sendPacket(pkt)
+                        // 可保留你原来的日志
+                    }
                     
                     // 丢包
-                    let fsInt = selSr == 0 ? 50 : Int(selSr)
+                    
                     self.recordLoss(deviceId: deviceId, kind: .hacc, samples: triples.count, fs: fsInt)
                 }, onError: { [weak self] err in
                     self?.log("ACC", "H10 stream error[\(deviceId)]: \(err)")
@@ -534,7 +903,7 @@ final class PolarManager: NSObject, ObservableObject {
                     guard let self = self else { return }
                     guard (self.activeStreamsByDevice[deviceId] ?? []).contains(.vacc) else { return }
 
-                    self.seqVACC &+= 1
+                    
                     let t = Date().timeIntervalSince1970
                     let triples = acc.map { [Int($0.x), Int($0.y), Int($0.z)] }
 
@@ -542,16 +911,30 @@ final class PolarManager: NSObject, ObservableObject {
                     let fsInt = selSr == 0 ? 52 : Int(selSr)
                     let rangeInt = selRg == 0 ? 8 : Int(selRg)
 
-                    let pkt = ACCPacket(
-                        device: dev,
-                        t_device: t,
-                        seq: self.seqVACC,
-                        fs: fsInt,
-                        mG: triples,
-                        n: triples.count,
-                        range_g: rangeInt
-                    )
-                    self.sendPacket(pkt)
+                    if FeatureFlags.cappedTxEnabled {
+                        self.sendACCCapped(
+                            devLabel: dev,
+                            fs: fsInt,
+                            rangeG: rangeInt,
+                            seqCounter: &self.seqVACC,
+                            baseTime: t,
+                            triples: triples
+                        )
+                        self.vlog("ACC", "capped batch n=\(triples.count) ch=3 (Verity)")
+                    } else {
+                        self.seqVACC &+= 1
+                        let pkt = ACCPacket(
+                            device: dev,
+                            t_device: t,
+                            seq: self.seqVACC,
+                            fs: fsInt,
+                            mG: triples,
+                            n: triples.count,
+                            range_g: rangeInt
+                        )
+                        self.sendPacket(pkt)
+                        self.vlog("ACC", "batch n=\(triples.count) ch=3 (Verity)")
+                    }
                     
                     // 丢包计算
                     self.recordLoss(deviceId: deviceId, kind: .vacc, samples: triples.count, fs: fsInt)
@@ -576,21 +959,52 @@ final class PolarManager: NSObject, ObservableObject {
                     let ch: UInt32 = chSet.contains(4)   ? 4   : (chSet.sorted().last ?? 4)
                     self.ppgFsSelected = Int(sr)
                     let chosen = PolarSensorSetting([.sampleRate: sr, .resolution: rs, .channels: ch])
-                    self.log("PPG", "start settings fs=\(sr)Hz res=\(rs)bit ch=\(ch)")
+                    self.vlog("PPG", "start settings fs=\(sr)Hz res=\(rs)bit ch=\(ch)")
                     return self.api.startPpgStreaming(deviceId, settings: chosen)
                 }
+                // MARK: debug
+                .do(
+                    onSubscribe: { [weak self] in
+                        #if DEBUG
+                        self?.vlog("PPG", "[diag] onSubscribe startPpgStreaming")
+                        #endif
+                    },
+                    onDispose: { [weak self] in
+                        #if DEBUG
+                        self?.vlog("PPG", "[diag] onDispose startPpgStreaming")
+                        #endif
+                    }
+                )
                 .observe(on: MainScheduler.instance)
                 .subscribe(onNext: { [weak self] ppg in
                     guard let self = self else { return }
                     guard (self.activeStreamsByDevice[deviceId] ?? []).contains(.ppg) else { return }
-                    self.seqPPG &+= 1
+                    
                     let t = Date().timeIntervalSince1970
                     let n = ppg.samples.count
                     let ch = ppg.samples.first?.channelSamples.count ?? 0
                     let matrix = ppg.samples.map { $0.channelSamples.map(Int.init) }
-                    let pkt = PPGPacket(device: dev, t_device: t, seq: self.seqPPG, fs: self.ppgFsSelected, n: n, ch: ch, mU: matrix)
-                    self.sendPacket(pkt)
-                    self.log("PPG", "batch n=\(n) channels=\(ch)")
+                    
+                    // 基于用户设置决定是否使用控制数据传送的大小限制技术
+                    if FeatureFlags.cappedTxEnabled{
+                        // 开启走“限制大小传输”：现切现发
+                        sendPPGCapped(
+                            devLabel: dev,
+                            fs: self.ppgFsSelected,
+                            seqCounter: &self.seqPPG,
+                            baseTime: t,
+                            matrix: matrix
+                        )
+                        self.vlog("PPG", "capped batch n=\(n) ch=\(ch)")
+                        
+                    } else {
+                        // 不开启限制传输，默认方法
+                        self.seqPPG &+= 1
+                        let pkt = PPGPacket(device: dev, t_device: t, seq: self.seqPPG, fs: self.ppgFsSelected, n: n, ch: ch, mU: matrix)
+                        self.sendPacket(pkt)
+                        self.vlog("PPG", "batch n=\(n) channels=\(ch)")
+                        
+                    }
                     
                     // 丢包
                     self.recordLoss(deviceId: deviceId, kind: .ppg, samples: n, fs: self.ppgFsSelected)
@@ -600,7 +1014,13 @@ final class PolarManager: NSObject, ObservableObject {
                     self.lastPPG1 = ch1
                     
                 }, onError: { [weak self] err in
-                    self?.log("PPG", "stream error[\(deviceId)]: \(err)")
+                    guard let self = self else { return }
+                    #if DEBUG
+                    if self.verbose {
+                        self.log("PPG", "[diag] onError = \(err)")
+                    }
+                    #endif
+                    self.log("PPG", "stream error[\(deviceId)]: \(err)")
                 })
             log("STREAM", "PPG started (Verity)")
 
@@ -608,6 +1028,25 @@ final class PolarManager: NSObject, ObservableObject {
             ppiDisposable?.dispose()
             ppiDisposable = api
                 .startPpiStreaming(deviceId)
+                // MARK: debug
+                .do(
+                    onSubscribe: { [weak self] in
+                        guard let self = self else { return }
+                        #if DEBUG
+                        if self.verbose {
+                            self.log("PPI", "[diag] onSubscribe startPpiStreaming")
+                        }
+                        #endif
+                    },
+                    onDispose: { [weak self] in
+                        guard let self = self else { return }
+                        #if DEBUG
+                        if self.verbose {
+                            self.log("PPI", "[diag] onDispose startPpiStreaming")
+                        }
+                        #endif
+                    }
+                )
                 .observe(on: MainScheduler.instance)
                 .subscribe(onNext: { [weak self] ppi in
                     guard let self = self else { return }
@@ -635,32 +1074,58 @@ final class PolarManager: NSObject, ObservableObject {
                     }
                     //Task { @MainActor in AppStore.shared.markSent() }
                 }, onError: { [weak self] err in
-                    self?.log("PPI", "stream error[\(deviceId)]: \(err)")
+                    guard let self = self else { return }
+                    #if DEBUG
+                    if self.verbose {
+                        self.log("PPI", "[diag] onError = \(err)")
+                    }
+                    #endif
+                    self.log("PPI", "stream error[\(deviceId)]: \(err)")
+                    
                 })
             log("STREAM", "PPI started (Verity)")
         }
     }
 
     private func stop(kind: SignalKind, deviceId: String) {
+        // MARK: debgu
+        #if DEBUG
+        if self.verbose{
+            log(kind.shortDesc, "[diag] stop() entered")
+        }
+        #endif
+        
         switch kind {
         case .hhr, .vhr, .rr:
             // 是否真正停 HR 由 applySelection/ensureHrStream 控制
             return
         case .ecg:
             ecgDisposable?.dispose();  ecgDisposable  = nil
+            lastECGuV = nil
+            clearLoss(deviceId: deviceId, kind: .ecg)
             log("STREAM", "ECG stopped (H10)")
-        case .hacc:
-            haccDisposable?.dispose(); haccDisposable = nil
-            log("STREAM", "ACC stopped (H10)")
+
         case .ppg:
             ppgDisposable?.dispose();  ppgDisposable  = nil
+            lastPPG1 = nil
+            clearLoss(deviceId: deviceId, kind: .ppg)
             log("STREAM", "PPG stopped (Verity)")
-        case .vacc:
-            vaccDisposable?.dispose(); vaccDisposable = nil
-            log("STREAM", "ACC stopped (Verity)")
+
         case .ppi:
             ppiDisposable?.dispose();  ppiDisposable  = nil
+            lastPpiMs = nil
+            // PPI 属于事件流，通常不算丢包；若未来加窗口统计，可在此 clearLoss(...)
             log("STREAM", "PPI stopped (Verity)")
+
+        case .hacc:
+            haccDisposable?.dispose(); haccDisposable = nil
+            clearLoss(deviceId: deviceId, kind: .hacc)
+            log("STREAM", "ACC stopped (H10)")
+
+        case .vacc:
+            vaccDisposable?.dispose(); vaccDisposable = nil
+            clearLoss(deviceId: deviceId, kind: .vacc)
+            log("STREAM", "ACC stopped (Verity)")
         }
     }
 
@@ -699,6 +1164,12 @@ extension PolarManager: PolarBleApiObserver {
         } else if n.contains("sense") || n.contains("verity") || n.contains("oh1") {
             connectedVerityId = nil
         }
+        
+        opSerial.async { [weak self] in
+            self?.opQueueByDevice[id] = []
+            self?.opProcessingByDevice.remove(id)
+        }
+        
         log("CONNECT", "已断开: \(id) pairingError=\(pairingError)")
     }
 }

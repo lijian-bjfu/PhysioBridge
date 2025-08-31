@@ -175,11 +175,28 @@ final class AppStore: ObservableObject {
     private var stimAccum: TimeInterval = 0
     private var intervStart: Date? = nil
     private var intervAccum: TimeInterval = 0
+    // MARK: - debug
+    private var verbose: Bool { FeatureFlags.consoleVerbose }
 
-    // MARK: init
+    #if DEBUG
+    private(set) var currentOpID: String = ""
+    @MainActor
+    private(set) var lastApplyReason: String = ""
+    #endif
+
+    // MARK: - init
     private init() {
         bindPolar()
         _ = UdpMarkerBridge.shared
+        
+        // ★ 启动即同步 UDP 目标（数值流），避免“没点设置就发到默认地址”
+        if let last = lastTargetForCurrentLAN() {
+            // 这里会顺带更新 UDPSenderService.shared
+            applyTarget(host: last.host, port: last.port)
+        } else {
+            // 即使没有历史，也要把当前默认目标喂给 UDPSenderService
+            UDPSenderService.shared.update(host: udpTarget.host, port: udpTarget.port)
+        }
     }
 
     // MARK: - Polar 绑定
@@ -351,6 +368,12 @@ final class AppStore: ObservableObject {
         print("[Store] selectedSignals=\(selectedSignals.map{$0.title}.joined(separator: ","))")
 
         guard isCollecting else { return }
+        // MARK: debug 数据溯源5-调用位置2
+        #if DEBUG
+        if self.verbose {
+            print("[Store] DISPATCH applySelection (reason=toggleSelect kind=\(kind.title))")
+        }
+        #endif
         applySelectionToConnectedDevices()
     }
 
@@ -365,6 +388,13 @@ final class AppStore: ObservableObject {
         let pm = PolarManager.shared
         let selV = kindsForVerity(from: selectedSignals)
         let selH = kindsForH10(from: selectedSignals)
+        
+        // MARK: debug 数据溯源3-检查信号发给谁、发什么
+        #if DEBUG
+        if self.verbose {
+            print("[Store] applySelectionToConnectedDevices verity=\(selV.map{$0.title}) h10=\(selH.map{$0.title})")
+        }
+        #endif
 
         if let id = pm.connectedVerityId, !selV.isEmpty {
             pm.applySelection(deviceId: id, kinds: selV)
@@ -379,9 +409,19 @@ final class AppStore: ObservableObject {
         }
     }
 
-    // MARK: - 采集生命周期
+    // MARK: - 开始采集
     func startCollect() {
         guard !isCollecting else { return }
+        
+        // MARK: debug 数据溯源
+        #if DEBUG
+        if self.verbose {
+            currentOpID = "op\(UInt64(Date().timeIntervalSince1970 * 1000))"
+            print("[Store] DISPATCH applySelection (reason=startCollect)")
+            lastApplyReason = "startCollect"
+        }
+        #endif
+        
         markerCount = 0
         lastSentAt = nil
 
@@ -550,5 +590,6 @@ final class AppStore: ObservableObject {
         let best = base.max(by: { $0.rssi < $1.rssi })
         return best?.id
     }
+
 }
 
