@@ -92,6 +92,28 @@ struct UdpTarget: Codable, Equatable {
     var isValid: Bool { !host.isEmpty && (1...65535).contains(port) }
 }
 
+// 切包统计结构体
+struct CapStats {
+    var count: Int = 0
+    var minBytes: Int = .max
+    var maxBytes: Int = 0
+    var sumBytes: Int = 0
+
+    var avgBytes: Double {
+        count > 0 ? Double(sumBytes) / Double(count) : 0
+    }
+
+    mutating func add(bytes: Int) {
+        count += 1
+        minBytes = min(minBytes, bytes)
+        maxBytes = max(maxBytes, bytes)
+        sumBytes += bytes
+    }
+
+    static let empty = CapStats()
+    var isEmpty: Bool { count == 0 }
+}
+
 // MARK: - AppStore
 
 @MainActor
@@ -122,6 +144,9 @@ final class AppStore: ObservableObject {
     @Published var trialID: String = UserDefaults.standard.string(forKey: "trialID") ?? "0"
 
     @Published var markerCount: Int = 0
+    
+    // 切包统计数据
+    @Published private(set) var capStats: CapStats = .empty
 
     // 设备状态（UI 读）
     @Published var verityState: DeviceState = .not_found
@@ -151,6 +176,9 @@ final class AppStore: ObservableObject {
 
     // 采集页“用户勾选”的集合（两台设备共享这一组选择；执行时按设备拆分）
     @Published var selectedSignals: Set<SignalKind> = []
+    
+    // 设置页，用户选择“开启数据大小限制”开关激活
+    private var cappedable: Bool { FeatureFlags.cappedTxEnabled }
 
     // 计时
     @Published var sessionStart: Date? = nil
@@ -284,6 +312,20 @@ final class AppStore: ObservableObject {
                 self.refreshSourcesByConnectedDevices()
             }
             .store(in: &cancellables)
+        
+        // 切包统计：仅在采集中且开启“限制数据大小传输”时累计
+        pm.capEvents
+            .filter { [weak self] _ in
+                guard let self = self else { return false }
+                return self.isCollecting && self.cappedable
+            }
+            .map(\.bytes)                          // 只取字节数
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] bytes in
+                self?.capStats.add(bytes: bytes)
+            }
+            .store(in: &cancellables)
+
     }
 
     // MARK: - UDP 目标
@@ -412,6 +454,10 @@ final class AppStore: ObservableObject {
     // MARK: - 开始采集
     func startCollect() {
         guard !isCollecting else { return }
+        
+        if self.cappedable {
+            capStats = .empty
+        }
         
         // MARK: debug 数据溯源
         #if DEBUG

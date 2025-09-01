@@ -54,11 +54,10 @@ final class InformationViewModel: ObservableObject {
     private let pm = PolarManager.shared
     private var cancellables = Set<AnyCancellable>()
 
-    // 空态/数据态
     @Published var hasDevice: Bool = false
     @Published var isCollecting: Bool = false
 
-    // 空态文案（蓝牙由 View 注入，保持你原有做法）
+    // 空态文案-显示蓝牙连接情况（蓝牙由 View 注入）
     @Published private var bluetoothOn: Bool = false
     var bluetoothStatus: (text: String, color: Color) {
         bluetoothOn ? ("已开启", .green) : ("未开启", .red)

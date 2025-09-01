@@ -232,15 +232,6 @@ struct CollectView: View {
                     }
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
-//                SectionHeader("采集进度")
-//                Card {
-//                    VStack(alignment: .leading, spacing: 8) {
-//                        Text("说明：此区显示最小化的实时进度/统计；根据实验需求继续开发。")
-//                            .font(.footnote)
-//                            .foregroundStyle(.secondary)
-//                            .padding(.top, 4)
-//                    }
-//                }
             }
             .padding(.vertical, 12)
             .padding(.horizontal, 16)

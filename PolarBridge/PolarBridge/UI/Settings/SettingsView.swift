@@ -1,9 +1,13 @@
 import SwiftUI
 
 struct SettingsView: View {
-    // 与系统持久化直接绑定（不用 AppStore 兜圈子）
+    // 与系统持久化直接绑定
+    // CollectView 显示信号流开关
     @AppStorage("feature.progressLog.enabled") private var progressLogEnabled: Bool = FeatureFlags.progressLogEnabled
+    // 使用数据限制技术开关
     @AppStorage("feature.tx.cappedEnabled")   private var cappedTxEnabled: Bool   = FeatureFlags.cappedTxEnabled
+    
+    // 是否显示用于debug的打印信息
     @AppStorage("consoleVerbose") private var consoleVerbose: Bool = false
     
     @State private var tempMaxBytes: String = String(FeatureFlags.maxPacketBytes)

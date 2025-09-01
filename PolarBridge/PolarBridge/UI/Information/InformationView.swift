@@ -1,9 +1,17 @@
 import SwiftUI
 
-/// InformationView
-/// 目的：替换旧 DebugView，作为只读的“参考信息”页面。
+fileprivate extension Int {
+    var asBytesString: String { "\(self) B" }
+}
+fileprivate extension Double {
+    var asBytesString: String { "\(Int(self.rounded())) B" }
+}
+
 struct InformationView: View {
-    // 使用 @StateObject 确保 ViewModel 的生命周期与 View 绑定
+    
+    @AppStorage("feature.tx.maxPacketBytes") private var cappedEnabled: Bool = FeatureFlags.cappedTxEnabled
+    
+    @StateObject private var store = AppStore.shared
     // 当 HomeView 创建并传入 ViewModel 时，View 会持有它
     @ObservedObject private var viewModel: InformationViewModel
     
@@ -125,41 +133,65 @@ struct InformationView: View {
                     Text("当前订阅的信号")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-
+                    
                     let streams = viewModel.streamSummaries
-
+                    
                     // 一个 Grid 包住所有条目，列宽统一
-                    Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 6) {
-                        ForEach(streams.indices, id: \.self) { i in
-                            let item = streams[i]
-
-                            // 行 1：名称 + 参数
-                            GridRow {
-                                Text(item.name).font(.body)
-                                Text(item.params)
-                                    .font(.callout)
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            // 行 2：丢包(60s) 或者透明占位（保持行高一致）
-                            if item.showsLossRow {
+                    VStack (spacing: 8) {
+                        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 6) {
+                            ForEach(streams.indices, id: \.self) { i in
+                                let item = streams[i]
+                                
+                                // 行 1：名称 + 参数
                                 GridRow {
-                                    Text("丢包(60s)").foregroundStyle(.secondary)
-                                    Text(item.lossRate?.formatted(.percent.precision(.fractionLength(1))) ?? "—")
+                                    Text(item.name).font(.body)
+                                    Text(item.params)
                                         .font(.callout)
+                                        .foregroundStyle(.secondary)
                                 }
-                            } else {
-                                GridRow {
-                                    Text("占位").font(.callout).opacity(0).gridCellColumns(2)
+                                
+                                // 行 2：丢包(60s) 或者透明占位（保持行高一致）
+                                if item.showsLossRow {
+                                    GridRow {
+                                        Text("丢包(60s)").foregroundStyle(.secondary)
+                                        Text(item.lossRate?.formatted(.percent.precision(.fractionLength(1))) ?? "—")
+                                            .font(.callout)
+                                    }
+                                } else {
+                                    GridRow {
+                                        Text("占位").font(.callout).opacity(0).gridCellColumns(2)
+                                    }
                                 }
-                            }
-
-                            // 分隔线跨两列（不是放 Grid 外）
-                            if i != streams.indices.last {
-                                GridRow { Divider().gridCellColumns(2) }
+                                
+                                // 分隔线跨两列（不是放 Grid 外）
+                                if i != streams.indices.last {
+                                    GridRow { Divider().gridCellColumns(2) }
+                                }
                             }
                         }
                     }
+                    
+                    
+                    // 切包统计（仅当打开“限制数据大小传输”时显示）
+                    if cappedEnabled {
+                        let s = store.capStats
+                        Divider()
+                        Text("切包统计")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+
+                        LabeledContent("发生次数", value: s.count > 0 ? "\(s.count)" : "—")
+
+                        LabeledContent("单包大小（字节）") {
+                            if s.count == 0 || s.minBytes == .max {
+                                Text("—").font(.callout)
+                            } else {
+                                Text("\(s.minBytes.asBytesString) / \(s.avgBytes.asBytesString) / \(s.maxBytes.asBytesString)")
+                                    .font(.callout)
+                            }
+                        }
+                    }
+                    
                 } else {
                     Text("请您在采集页选择要测量的生理信号")
                         .font(.footnote)

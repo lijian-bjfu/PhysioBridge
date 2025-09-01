@@ -15,15 +15,25 @@
 
 import Foundation
 import CoreBluetooth
+import Combine
 import PolarBleSdk
 import RxSwift
 
 final class PolarManager: NSObject, ObservableObject {
 
-    // MARK: - Singleton
+    // Singleton
     static let shared = PolarManager()
+    // 回调
+    typealias OpCompletion = (Error?) -> Void
     
-    // MARK: debug
+    // MARK: - debug
+    
+    /// 识别 Polar SDK 的 “Already in state”报错
+    @inline(__always)
+    private func isAlreadyInStateError(_ error: Error) -> Bool {
+        return String(describing: error).lowercased().contains("already in state")
+    }
+    
     // 详细日志总开关（从 FeatureFlags 读）
     private var verbose: Bool { FeatureFlags.consoleVerbose }
 
@@ -98,6 +108,7 @@ final class PolarManager: NSObject, ObservableObject {
 
     // PPG fs 记录（选择后缓存）
     private var ppgFsSelected: Int = 0
+    private var ecgFsSelected: Int = 0
 
     // 扫描心跳
     private var scanStartedAt: Date?
@@ -111,9 +122,17 @@ final class PolarManager: NSObject, ObservableObject {
     private var lastLoggedHR: UInt8 = 255
     private var lastHRLogAt: TimeInterval = 0
 
+    // 记录传输样本信息
+    struct CappingEvent {
+        let deviceLabel: String
+        let kind: SignalKind
+        let samples: Int
+        let bytes: Int
+    }
+    let capEvents = PassthroughSubject<CappingEvent, Never>()
     
     // MARK: - 串行队列：按设备串行执行 start/stop，避免“Already in state”
-    private enum StreamOp {
+    private enum StreamOp  {
         case stop(SignalKind)
         case start(SignalKind)
         
@@ -125,8 +144,12 @@ final class PolarManager: NSObject, ObservableObject {
         }
     }
 
-    private var opQueueByDevice: [String: [StreamOp]] = [:]   // 设备 -> 待执行操作队列
-    private var opProcessingByDevice: Set<String> = []        // 正在执行中的设备集合
+    // 记录每台设备当前正在处理的操作
+    private var opQueueByDevice: [String: [StreamOp]] = [:]
+    // 正在执行中的设备集合
+    private var opProcessingByDevice: Set<String> = []
+    // 记录每台设备当前正在处理的操作（用于去重）
+    private var opCurrentByDevice: [String: StreamOp] = [:]
     private let opSerial = DispatchQueue(label: "pb.stream.ops", qos: .userInitiated)
 
 
@@ -206,6 +229,14 @@ final class PolarManager: NSObject, ObservableObject {
 
                 if let json = TelemetryEncoder.encodeToJSONString(pkt),
                    json.utf8.count <= cap {
+                    // 记录统计切分数据，本次子包字节大小 + 样本数
+                    capEvents.send(.init(
+                        deviceLabel: devLabel,
+                        kind: .ppg,
+                        samples: slice.count,
+                        bytes: json.utf8.count
+                    ))
+    
                     UDPSenderService.shared.send(json)
                     start = end
                     guess = max(8, n)   // 下一次尝试用本次成功的大小，最低 8
@@ -232,6 +263,14 @@ final class PolarManager: NSObject, ObservableObject {
                     mU: slice
                 )
                 if let json = TelemetryEncoder.encodeToJSONString(pkt) {
+                    
+                    capEvents.send(.init(
+                        deviceLabel: devLabel,
+                        kind: .ppg,
+                        samples: 1,
+                        bytes: json.utf8.count
+                    ))
+                    
                     UDPSenderService.shared.send(json)
                 }
                 start += 1
@@ -268,6 +307,15 @@ final class PolarManager: NSObject, ObservableObject {
                 let pkt = ECGPacket(device: devLabel, t_device: t0, seq: seqCounter, fs: fs, uV: slice, n: slice.count)
                 if let json = TelemetryEncoder.encodeToJSONString(pkt),
                    json.utf8.count <= cap {
+                    
+                    // 记录统计切分数据，本次子包字节大小 + 样本数
+                    capEvents.send(.init(
+                        deviceLabel: devLabel,
+                        kind: .ecg,
+                        samples: slice.count,
+                        bytes: json.utf8.count
+                    ))
+                    
                     UDPSenderService.shared.send(json)
                     start = end
                     guess = max(32, n) // 记住本次成功规模
@@ -284,6 +332,12 @@ final class PolarManager: NSObject, ObservableObject {
                 seqCounter &+= 1
                 let pkt = ECGPacket(device: devLabel, t_device: t0, seq: seqCounter, fs: fs, uV: slice, n: 1)
                 if let json = TelemetryEncoder.encodeToJSONString(pkt) {
+                    capEvents.send(.init(
+                        deviceLabel: devLabel,
+                        kind: .ecg,
+                        samples: 1,
+                        bytes: json.utf8.count
+                    ))
                     UDPSenderService.shared.send(json)
                 }
                 start += 1
@@ -299,7 +353,8 @@ final class PolarManager: NSObject, ObservableObject {
         rangeG: Int,
         seqCounter: inout UInt64,
         baseTime: TimeInterval,
-        triples: [[Int]]          // [样本][3]
+        triples: [[Int]],          // [样本][3]
+        kind: SignalKind
     ) {
         let cap = FeatureFlags.maxPacketBytes
         let nTotal = triples.count
@@ -329,6 +384,15 @@ final class PolarManager: NSObject, ObservableObject {
                 )
                 if let json = TelemetryEncoder.encodeToJSONString(pkt),
                    json.utf8.count <= cap {
+                    
+                    // 记录统计切分数据，本次子包字节大小 + 样本数
+                    capEvents.send(.init(
+                        deviceLabel: devLabel,
+                        kind: kind,
+                        samples: slice.count,
+                        bytes: json.utf8.count
+                    ))
+                    
                     UDPSenderService.shared.send(json)
                     start = end
                     guess = max(16, n)
@@ -353,6 +417,14 @@ final class PolarManager: NSObject, ObservableObject {
                     range_g: rangeG
                 )
                 if let json = TelemetryEncoder.encodeToJSONString(pkt) {
+                    
+                    capEvents.send(.init(
+                        deviceLabel: devLabel,
+                        kind: kind,
+                        samples: 1,
+                        bytes: json.utf8.count
+                    ))
+                    
                     UDPSenderService.shared.send(json)
                 }
                 start += 1
@@ -412,8 +484,6 @@ final class PolarManager: NSObject, ObservableObject {
         byKind.removeValue(forKey: kind)
         loss60sByDeviceAndKind[deviceId] = byKind
     }
-
-
 
     // MARK: - 初始化
     override init() {
@@ -524,6 +594,7 @@ final class PolarManager: NSObject, ObservableObject {
     func applySelection(deviceId: String, kinds: Set<SignalKind>) {
         selectedKindsByDevice[deviceId] = kinds
         let was = activeStreamsByDevice[deviceId] ?? []
+        
         // 差分只针对本设备
         let toStop  = was.subtracting(kinds)
         let toStart = kinds.subtracting(was)
@@ -532,25 +603,20 @@ final class PolarManager: NSObject, ObservableObject {
         #if DEBUG
         if verbose {
             let op = AppStore.shared.currentOpID
-            let reason = AppStore.shared.lastApplyReason
-            let caller = Thread.callStackSymbols.dropFirst(2).prefix(3).joined(separator: " | ")
-            log("STREAM", "[\(op)] applySelection[\(deviceId.prefix(4))] was=\(was.map{$0.title}) new=\(kinds.map{$0.title}) stop=\(toStop.map{$0.title}) start=\(toStart.map{$0.title})")
-            log("STREAM", "[\(op)] callstack: \(caller)")
-            log("STREAM", "[reason=\(reason)] applySelection[\(deviceId.prefix(4))] was=\(was.map{$0.title}) new=\(kinds.map{$0.title}) stop=\(toStop.map{$0.title}) start=\(toStart.map{$0.title})")
+            // let reason = AppStore.shared.lastApplyReason
+            // let caller = Thread.callStackSymbols.dropFirst(2).prefix(3).joined(separator: " | \n ")
+            log("STREAM", "[currentOp = \(op)] 来自 applySelection 的操作 [\(deviceId.prefix(4))] was=\(was.map{$0.title}) new=\(kinds.map{$0.title}) stop=\(toStop.map{$0.title}) start=\(toStart.map{$0.title})")
+            // log("STREAM", "[\(op)] 调用信息: \n \(caller)")
+            // log("STREAM", "[reason=\(reason)] applySelection[\(deviceId.prefix(4))] was=\(was.map{$0.title}) new=\(kinds.map{$0.title}) stop=\(toStop.map{$0.title}) start=\(toStart.map{$0.title})")
         }
         #endif
 
-        
-        
         // 如果没有任何变化，直接同步 active 集合并返回
         if toStop.isEmpty && toStart.isEmpty {
             activeStreamsByDevice[deviceId] = kinds
             log("STREAM", "applySelection[\(deviceId.prefix(4))] -> NOOP")
             return
         }
-        // 先停再启，避免抖动
-        // for k in toStop  { stop(kind: k, deviceId: deviceId) }
-        // for k in toStart { start(kind: k, deviceId: deviceId) }
         
         // 不再直接 for 循环 start/stop，而是改为入队
         enqueue(deviceId: deviceId, stops: Array(toStop), starts: Array(toStart))
@@ -561,7 +627,7 @@ final class PolarManager: NSObject, ObservableObject {
         if needHR { ensureHrStream(id: deviceId) } else { stopHr(id: deviceId) }
 
         activeStreamsByDevice[deviceId] = kinds
-        log("STREAM", "applySelection[\(deviceId.prefix(4))] -> \(kinds.map{$0.title}.sorted().joined(separator: ","))")
+        log("STREAM", "applySelection[\(deviceId.prefix(4))] 确认选择 -> \(kinds.map{$0.title}.sorted().joined(separator: ","))")
     }
 
     @MainActor
@@ -575,8 +641,11 @@ final class PolarManager: NSObject, ObservableObject {
 
         activeStreamsByDevice.removeAll()
         
-        opQueueByDevice.removeAll()
-        opProcessingByDevice.removeAll()
+        opSerial.async { [weak self] in
+            self?.opQueueByDevice.removeAll()
+            self?.opProcessingByDevice.removeAll()
+            self?.opCurrentByDevice.removeAll()
+        }
         
         lastECGuV = nil
         lastPPG1  = nil
@@ -593,51 +662,131 @@ final class PolarManager: NSObject, ObservableObject {
     private func enqueue(deviceId: String, stops: [SignalKind], starts: [SignalKind]) {
         opSerial.async {
             var q = self.opQueueByDevice[deviceId] ?? []
-            // 先 stop 再 start，按名字稳定排序，避免顺序抖动
-            for k in stops.sorted(by: { $0.rawValue < $1.rawValue })  { q.append(.stop(k)) }
-            for k in starts.sorted(by: { $0.rawValue < $1.rawValue }) { q.append(.start(k)) }
+            
+            // 去重辅助：判断队列里是否已有 .start(kind)
+            func queueHasStart(_ kind: SignalKind) -> Bool {
+                return q.contains { op in
+                    if case .start(let k) = op { return k == kind }
+                    return false
+                }
+            }
+            // 判断“当前正在处理”的是否就是 .start(kind)
+            func currentIsStart(_ kind: SignalKind) -> Bool {
+                if let cur = self.opCurrentByDevice[deviceId],
+                   case .start(let k) = cur, k == kind { return true }
+                return false
+            }
+            
+            // 先 stop 再 start，按字母序稳定排序，避免顺序抖动
+            for k in stops.sorted(by: { $0.rawValue < $1.rawValue }) {
+                // stop 通常幂等，但依然避免把完全相同的 stop 连续塞多条
+                let alreadyInQueue = q.contains { op in
+                    if case .stop(let x) = op { return x == k }; return false
+                }
+                let currentSame   = {
+                    if let cur = self.opCurrentByDevice[deviceId],
+                       case .stop(let x) = cur, x == k { return true }
+                    return false
+                }()
+
+                if !alreadyInQueue && !currentSame {
+                    q.append(.stop(k))
+                } else {
+                    self.vlog("STREAM", "queue[\(deviceId.prefix(4))] drop dup stop(\(k))")
+                }
+            }
+
+            for k in starts.sorted(by: { $0.rawValue < $1.rawValue }) {
+                // 关键：start 去重（队列里已有 or 正在处理中的相同 start 就丢弃）
+                if queueHasStart(k) || currentIsStart(k) {
+                    self.vlog("STREAM", "queue[\(deviceId.prefix(4))] drop dup start(\(k))")
+                } else {
+                    q.append(.start(k))
+                }
+            }
+            
             self.opQueueByDevice[deviceId] = q
+            
+            // 关键一步：启动队列处理器
             self.processNextOp(deviceId)
         }
     }
-
+    
     private func processNextOp(_ deviceId: String) {
-        // 串行保护：同一时间每台设备只跑一个操作
         opSerial.async { [weak self] in
             guard let self else { return }
+            // 若该设备当前正在处理，或者没有待处理，直接返回
             if self.opProcessingByDevice.contains(deviceId) { return }
             guard var q = self.opQueueByDevice[deviceId], !q.isEmpty else { return }
 
-            self.opProcessingByDevice.insert(deviceId)
+            // 取出队首，并标记“处理中”
             let op = q.removeFirst()
             self.opQueueByDevice[deviceId] = q
+            self.opProcessingByDevice.insert(deviceId)
+            // 标注“当前正在处理”的操作（用于去重
+            self.opCurrentByDevice[deviceId] = op
 
-            // 在主线程真正执行 start/stop（与现有代码一致）
+            // 完成回调（单次触发），负责“让队列继续滚动”
+            let finish: OpCompletion = { [weak self] error in
+                guard let self else { return }
+                if let error = error {
+                    self.vlog("STREAM", "queue[\(deviceId.prefix(4))] FAILED on \(op) with error: \(error.localizedDescription)")
+                }
+                self.opSerial.async {
+                    // 清理“当前 op”与“正在处理”标志
+                    self.opCurrentByDevice[deviceId] = nil
+                    self.opProcessingByDevice.remove(deviceId)
+                    // 继续处理下一条（若有）
+                    self.processNextOp(deviceId)
+                }
+            }
+
+            // 转到主线程执行，因为 Polar SDK 需要
             DispatchQueue.main.async {
                 switch op {
-                case .stop(let k):
-                    self.stop(kind: k, deviceId: deviceId)
-                case .start(let k):
-                    self.start(kind: k, deviceId: deviceId)
-                }
-                self.vlog("STREAM", "queue[\(deviceId.prefix(4))] did \(op)")
-
-                // 给底层 GATT 一个“喘气”时间，避免 back-to-back 引发 "Already in state"
-                self.opSerial.asyncAfter(deadline: .now() + 0.15) {
-                    self.opProcessingByDevice.remove(deviceId)
-                    self.processNextOp(deviceId) // 递归拉起队列的下一项
+                case .start(let kind):
+                    self.start(kind: kind, deviceId: deviceId, completion: finish)
+                case .stop(let kind):
+                    self.stop(kind: kind, deviceId: deviceId, completion: finish)
                 }
             }
         }
     }
 
-
-    // MARK: - startHr(.. 采集HR/RR
+    // MARK: - star(.. 采集ECG, ACC, PPI, PPG
     private func ensureHrStream(id: String) {
         if hrDisposableById[id] != nil { return }
         startHr(id: id)
     }
 
+    /// 主启动函数（调度器）
+    private func start(kind: SignalKind, deviceId: String, completion: @escaping OpCompletion) {
+        switch kind {
+        case .ecg:  startECG(deviceId: deviceId, completion: completion)
+        case .hacc: startHACC(deviceId: deviceId, completion: completion)
+        case .vacc: startVACC(deviceId: deviceId, completion: completion)
+        case .ppg:  startPPG(deviceId: deviceId, completion: completion)
+        case .ppi:  startPPI(deviceId: deviceId, completion: completion)
+        case .hhr, .vhr, .rr:
+            // 由 HR 主流管理，不直接启动，直接成功回调
+            completion(nil)
+        }
+    }
+
+    /// 主停止函数（调度器）
+    private func stop(kind: SignalKind, deviceId: String, completion: @escaping OpCompletion) {
+        switch kind {
+        case .ecg:  stopECG(deviceId: deviceId, completion: completion)
+        case .hacc: stopHACC(deviceId: deviceId, completion: completion)
+        case .vacc: stopVACC(deviceId: deviceId, completion: completion)
+        case .ppg:  stopPPG(deviceId: deviceId, completion: completion)
+        case .ppi:  stopPPI(deviceId: deviceId, completion: completion)
+        case .hhr, .vhr, .rr:
+            completion(nil)
+        }
+    }
+    
+    // MARK: - startHR
     private func startHr(id: String) {
         // 清旧 → 开新（每台设备）
         hrDisposableById[id]?.dispose()
@@ -693,57 +842,68 @@ final class PolarManager: NSObject, ObservableObject {
         for (id, d) in hrDisposableById { d.dispose(); hrDisposableById[id] = nil }
         hrDisposableById.removeAll()
     }
-
-    // MARK: - star(.. 采集ECG, ACC, PPI, PPG
-    private func start(kind: SignalKind, deviceId: String) {
-        // MARK: debug
-        #if DEBUG
-        if verbose{
-            let c = (dbgStartCount[deviceId]?[kind] ?? 0) + 1
-            dbgStartCount[deviceId, default: [:]][kind] = c
-            log(kind.shortDesc, "[diag] start() entered x\(c)")
-        }
-        #endif
+    
+    // MARK: startECG
+    private func startECG(deviceId: String, completion: @escaping OpCompletion) {
+        ecgDisposable?.dispose()
+        var isDone = false
+        let completeOnce: OpCompletion = { err in guard !isDone else { return }; isDone = true; completion(err) }
         
+        var signaledReady = false
         let dev = deviceLabel(for: deviceId)
-        
-        switch kind {
 
-        case .hhr, .vhr, .rr:
-            // 底层由 ensureHrStream 统一管理；这里无需直接开启
-            return
-
-        case .ecg: // H10 ECG
-            ecgDisposable?.dispose()
-            ecgDisposable = api
-                .requestStreamSettings(deviceId, feature: .ecg)
-                .asObservable()
-                .flatMap { [weak self] settings -> Observable<PolarEcgData> in
-                    guard let self = self else { return .empty() }
-                    
-                    let s = settings.settings
-                    let srSet = Array(s[.sampleRate] ?? []).sorted()
-                    let rsSet = Array(s[.resolution] ?? []).sorted()
-                    // self.log("ECG", "H10 available settings: sr=\(srSet) res=\(rsSet)")
-                    
-                    let sr: UInt32 = srSet.contains(130) ? 130 : (srSet.first ?? 130)
-                    let rs: UInt32 = rsSet.contains(14)  ? 14  : (rsSet.first ?? 14)
-                    let chosen = PolarSensorSetting([.sampleRate: sr, .resolution: rs])
-                    self.log("ECG", "start settings fs=\(sr)Hz res=\(rs)bit")
-                    return self.api.startEcgStreaming(deviceId, settings: chosen)
+        ecgDisposable = api.requestStreamSettings(deviceId, feature: .ecg)
+            .asObservable()
+            .flatMap { [weak self] settings -> Observable<PolarEcgData> in
+                guard let self = self else { return .empty() }
+                
+                let s = settings.settings
+                let srSet = Array(s[.sampleRate] ?? []).sorted()
+                let rsSet = Array(s[.resolution] ?? []).sorted()
+                // self.log("ECG", "H10 available settings: sr=\(srSet) res=\(rsSet)")
+                
+                let sr: UInt32 = srSet.contains(130) ? 130 : (srSet.first ?? 130)
+                let rs: UInt32 = rsSet.contains(14)  ? 14  : (rsSet.first ?? 14)
+                
+                self.ecgFsSelected = Int(sr)
+                let chosen = PolarSensorSetting([.sampleRate: sr, .resolution: rs])
+                self.log("ECG", "start settings fs=\(sr)Hz res=\(rs)bit")
+                return self.api.startEcgStreaming(deviceId, settings: chosen)
+            }
+            .do(
+                onSubscribe: { [weak self] in
+                    #if DEBUG
+                    self?.vlog("ECG", "[diag] onSubscribe startEcgStreaming")
+                    #endif
+                    // **不再在 onSubscribe 就 completeOnce(nil)**
+                },
+                onDispose: { [weak self] in
+                    #if DEBUG
+                    self?.vlog("ECG", "[diag] onDispose startEcgStreaming")
+                    #endif
                 }
-                .observe(on: MainScheduler.instance)
-                .subscribe(onNext: { [weak self] ecg in
+            )
+            .observe(on: MainScheduler.instance)
+            .subscribe( onNext: { [weak self] ecg in
                     guard let self = self else { return }
                     // 只看该设备的激活集
                     guard (self.activeStreamsByDevice[deviceId] ?? []).contains(.ecg) else { return }
+                
+                    // 回调完成标记要在onNext中标记
+                    // 回调是否完成以signaledReady为标记
+                    if !signaledReady {
+                        signaledReady = true
+                        completeOnce(nil)
+                        self.vlog("STREAM", "queue[\(deviceId.prefix(4))] did start(\(SignalKind.ecg))")
+                    }
+                
                     let t = Date().timeIntervalSince1970
                     let uV = ecg.map { Int($0.voltage) }
                     
                     if FeatureFlags.cappedTxEnabled {
                         self.sendECGCapped(
                             devLabel: dev,
-                            fs: 130,                 // 你上面挑的就是 130
+                            fs: self.ecgFsSelected,                 // 你上面挑的就是 130
                             seqCounter: &self.seqECG,
                             baseTime: t,
                             uV: uV
@@ -762,232 +922,97 @@ final class PolarManager: NSObject, ObservableObject {
                     // 记录ecg最新值用于UI打印
                     self.lastECGuV = uV.last
                     
-                }, onError: { [weak self] err in
-                    self?.log("ECG", "stream error[\(deviceId)]: \(err)")
-                })
-            log("STREAM", "ECG started (H10)")
-
-        case .hacc: // H10 ACC
-            // 若已有订阅先停止，避免重复回调
-            haccDisposable?.dispose()
-            // 丢包变量
-            var selSr: UInt32 = 0
-            // 先查询 ACC 可用设置，再用所选设置开启流
-            haccDisposable = api
-                .requestStreamSettings(deviceId, feature: .acc)
-                .asObservable()
-                .flatMap { [weak self] settings -> Observable<PolarAccData> in
-                    guard let self = self else { return .empty() }
-                    
-                    // 从 settings.settings 中挑选采样率与量程
-                    let s = settings.settings
-                    let srSet = Array(s[.sampleRate] ?? []).sorted()
-                    let rgSet = Array(s[.range] ?? []).sorted()
-                    let rsSet = Array(s[.resolution] ?? []).sorted()
-                    
-                    //self.log("ACC", "H10 available settings: sr=\(srSet) range=\(rgSet) res=\(rsSet)")
-                    
-                    // 目标优先 50Hz、±4G；不可用时兜底为集合中的最小可用值
-                    // 如果 H10 实际没有 range 键，就不会把 .range 放进设置，避免无效参数
-                    guard let sr = (srSet.contains(50) ? 50 : srSet.first) else {
-                        self.log("ACC", "H10 no sampleRate available, abort")
-                        return .empty()
-                    }
-                    selSr = sr
-                    // 组装仅包含“设备确实支持”的键
-                    var chosenDict: [PolarSensorSetting.SettingType: UInt32] = [.sampleRate: sr]
-                    
-                    if let rg = (rgSet.contains(4) ? 4 : rgSet.first) {
-                        chosenDict[.range] = rg
-                    }
-                    if let rs = (rsSet.contains(16) ? 16 : rsSet.first) {
-                        chosenDict[.resolution] = rs
-                    }
-
-                    let chosen = PolarSensorSetting(chosenDict)
-                    let rgLog = chosenDict[.range].map { "±\($0)G" } ?? "n/a"
-                    let rsLog = chosenDict[.resolution].map { "\($0)bit" } ?? "n/a"
-                    self.log("ACC", "H10 start fs=\(sr)Hz \(rgLog) res=\(rsLog)")
-                    return self.api.startAccStreaming(deviceId, settings: chosen)
-                }
-                .observe(on: MainScheduler.instance)
-                .subscribe(onNext: { [weak self] acc in
-                    guard let self = self else { return }
-                    guard (self.activeStreamsByDevice[deviceId] ?? []).contains(.hacc) else { return }
-                    
-                    let t = Date().timeIntervalSince1970
-                    let triples = acc.map { [Int($0.x), Int($0.y), Int($0.z)] }
-                    let fsInt = selSr == 0 ? 50 : Int(selSr)
-                    
-                    if FeatureFlags.cappedTxEnabled {
-                        self.sendACCCapped(
-                            devLabel: dev,
-                            fs: fsInt,
-                            rangeG: 4,
-                            seqCounter: &self.seqHACC,
-                            baseTime: t,
-                            triples: triples
-                        )
-                        self.vlog("ACC", "capped batch n=\(triples.count) ch=3 (H10)")
+                },
+                onError: { [weak self] err in
+                    if self?.isAlreadyInStateError(err) == true {
+                        self?.vlog("ECG", "Stream already started. Treating as idempotent success.")
+                        self?.activeStreamsByDevice[deviceId]?.insert(.ecg)
+                        if !signaledReady { completeOnce(nil); signaledReady = true }
+                        completeOnce(nil)
                     } else {
-                        self.seqHACC &+= 1
-                        let pkt = ACCPacket(device: dev, t_device: t, seq: self.seqHACC, fs: fsInt, mG: triples, n: triples.count, range_g: 4)
-                        self.sendPacket(pkt)
-                        // 可保留你原来的日志
+                        self?.vlog("ECG", "stream error[\(deviceId)]: \(err)")
+                        completeOnce(err)
                     }
-                    
-                    // 丢包
-                    
-                    self.recordLoss(deviceId: deviceId, kind: .hacc, samples: triples.count, fs: fsInt)
-                }, onError: { [weak self] err in
-                    self?.log("ACC", "H10 stream error[\(deviceId)]: \(err)")
-                })
-            log("STREAM", "ACC started (H10, 50Hz, ±4G)")
-
-        case .vacc: // Verity ACC
-            // 1) 先清理旧订阅，避免重复回调
-            vaccDisposable?.dispose()
-
-            // 2) 用捕获变量保存 “所选参数”，供 subscribe/onNext 打包使用
-            var selSr: UInt32 = 0
-            var selRg: UInt32 = 0
-
-            vaccDisposable = api
-                .requestStreamSettings(deviceId, feature: .acc)
-                .asObservable()
-                .flatMap { [weak self] (settings: PolarSensorSetting) -> Observable<PolarAccData> in
-                    guard let self = self else { return .empty() }
-
-                    let s = settings.settings
-                    let srSet = Array(s[.sampleRate] ?? []).sorted()
-                    let rgSet = Array(s[.range] ?? []).sorted()
-                    let rsSet = Array(s[.resolution] ?? []).sorted()
-                    let chSet = Array(s[.channels] ?? []).sorted()
-
-                    self.log("ACC", "Verity available: sr=\(srSet) range=\(rgSet) res=\(rsSet) ch=\(chSet)")
-
-                    // 采样率优先 52Hz，其次 50Hz，再退集合首项
-                    guard let sr = (srSet.contains(52) ? 52 : (srSet.contains(50) ? 50 : srSet.first)) else {
-                        self.log("ACC", "Verity no sampleRate available, abort")
-                        return .empty()
-                    }
-                    selSr = sr
-
-                    // 仅写“设备确实暴露”的键，避免 GATT Invalid *
-                    var chosen: [PolarSensorSetting.SettingType: UInt32] = [.sampleRate: sr]
-
-                    if let rg = (rgSet.contains(8) ? 8 : (rgSet.contains(4) ? 4 : rgSet.first)) {
-                        chosen[.range] = rg
-                        selRg = rg
-                    } else {
-                        selRg = 0 // 兜底
-                    }
-                    if let rs = (rsSet.contains(16) ? 16 : rsSet.first) {
-                        chosen[.resolution] = rs
-                    }
-                    if let ch = chSet.first {
-                        // 只有设备暴露了 channels 才设置；很多固件不暴露这个键
-                        chosen[.channels] = ch
-                    }
-
-                    let setting = PolarSensorSetting(chosen)
-                    let rgLog = chosen[.range].map { "±\($0)G" } ?? "n/a"
-                    let rsLog = chosen[.resolution].map { "\($0)bit" } ?? "n/a"
-                    let chLog = chosen[.channels].map { "\($0)" } ?? "n/a"
-                    self.log("ACC", "Verity start fs=\(sr)Hz \(rgLog) res=\(rsLog) ch=\(chLog)")
-
-                    return self.api.startAccStreaming(deviceId, settings: setting)
                 }
-                .observe(on: MainScheduler.instance)
-                .subscribe(onNext: { [weak self] acc in
-                    guard let self = self else { return }
-                    guard (self.activeStreamsByDevice[deviceId] ?? []).contains(.vacc) else { return }
+            )
+    }
+    private func stopECG(deviceId: String, completion: @escaping OpCompletion) {
+        // 1) 取消订阅
+        ecgDisposable?.dispose()
+        ecgDisposable = nil
 
-                    
-                    let t = Date().timeIntervalSince1970
-                    let triples = acc.map { [Int($0.x), Int($0.y), Int($0.z)] }
+        // 2) 更新内部状态：该设备的 .vacc 已不再处于“启用中”
+        activeStreamsByDevice[deviceId]?.remove(.ecg)
 
-                    // 用“实际选中的” fs / range_g，避免与上游不一致
-                    let fsInt = selSr == 0 ? 52 : Int(selSr)
-                    let rangeInt = selRg == 0 ? 8 : Int(selRg)
+        // 3) 清理丢包统计/缓存
+        clearLoss(deviceId: deviceId, kind: .ecg)
 
-                    if FeatureFlags.cappedTxEnabled {
-                        self.sendACCCapped(
-                            devLabel: dev,
-                            fs: fsInt,
-                            rangeG: rangeInt,
-                            seqCounter: &self.seqVACC,
-                            baseTime: t,
-                            triples: triples
-                        )
-                        self.vlog("ACC", "capped batch n=\(triples.count) ch=3 (Verity)")
-                    } else {
-                        self.seqVACC &+= 1
-                        let pkt = ACCPacket(
-                            device: dev,
-                            t_device: t,
-                            seq: self.seqVACC,
-                            fs: fsInt,
-                            mG: triples,
-                            n: triples.count,
-                            range_g: rangeInt
-                        )
-                        self.sendPacket(pkt)
-                        self.vlog("ACC", "batch n=\(triples.count) ch=3 (Verity)")
-                    }
-                    
-                    // 丢包计算
-                    self.recordLoss(deviceId: deviceId, kind: .vacc, samples: triples.count, fs: fsInt)
-                }, onError: { [weak self] err in
-                    self?.log("ACC", "Verity stream error[\(deviceId)]: \(err)")
-                })
-            log("STREAM", "ACC started (Verity, 52Hz, ±8G)")
+        // 4) 日志
+        log("STREAM", "ECG stopped (H10)")
 
-        case .ppg: // Verity PPG
-            ppgDisposable?.dispose()
-            ppgDisposable = api
-                .requestStreamSettings(deviceId, feature: .ppg)
-                .asObservable()
-                .flatMap { [weak self] settings -> Observable<PolarPpgData> in
-                    guard let self = self else { return .empty() }
-                    let srSet: Set<UInt32> = settings.settings[.sampleRate] ?? []
-                    let rsSet: Set<UInt32> = settings.settings[.resolution] ?? []
-                    let chSet: Set<UInt32> = settings.settings[.channels] ?? []
-                    // Verity 常见 55Hz / 22bit / 4ch，若固件更新支持 135Hz 则优先
-                    let sr: UInt32 = srSet.contains(135) ? 135 : (srSet.sorted().first ?? 55)
-                    let rs: UInt32 = rsSet.contains(22)  ? 22  : (rsSet.sorted().first ?? 22)
-                    let ch: UInt32 = chSet.contains(4)   ? 4   : (chSet.sorted().last ?? 4)
-                    self.ppgFsSelected = Int(sr)
-                    let chosen = PolarSensorSetting([.sampleRate: sr, .resolution: rs, .channels: ch])
-                    self.vlog("PPG", "start settings fs=\(sr)Hz res=\(rs)bit ch=\(ch)")
-                    return self.api.startPpgStreaming(deviceId, settings: chosen)
+        // 5) 关键：通知队列“这一条已完成”，让下一条操作能被继续处理
+        completion(nil)
+    }
+    
+    // MARK: startPPG
+    private func startPPG(deviceId: String, completion: @escaping OpCompletion) {
+        ppgDisposable?.dispose()
+        var isDone = false
+        let completeOnce: OpCompletion = { err in guard !isDone else { return }; isDone = true; completion(err) }
+
+        let dev = deviceLabel(for: deviceId)
+        var signaledReady = false  // <—— 仅在首帧到达时置 true 并回调完成
+
+        ppgDisposable = api.requestStreamSettings(deviceId, feature: .ppg)
+            .asObservable()
+            .flatMap { [weak self] settings -> Observable<PolarPpgData> in
+                guard let self = self else { return .empty() }
+                let srSet: Set<UInt32> = settings.settings[.sampleRate] ?? []
+                let rsSet: Set<UInt32> = settings.settings[.resolution] ?? []
+                let chSet: Set<UInt32> = settings.settings[.channels] ?? []
+                // Verity 常见 55Hz / 22bit / 4ch，若固件更新支持 135Hz 则优先
+                let sr: UInt32 = srSet.contains(135) ? 135 : (srSet.sorted().first ?? 55)
+                let rs: UInt32 = rsSet.contains(22)  ? 22  : (rsSet.sorted().first ?? 22)
+                let ch: UInt32 = chSet.contains(4)   ? 4   : (chSet.sorted().last ?? 4)
+                self.ppgFsSelected = Int(sr)
+                let chosen = PolarSensorSetting([.sampleRate: sr, .resolution: rs, .channels: ch])
+                self.vlog("PPG", "start settings fs=\(sr)Hz res=\(rs)bit ch=\(ch)")
+                return self.api.startPpgStreaming(deviceId, settings: chosen)
+            }
+            .do(
+                onSubscribe: { [weak self] in
+                    #if DEBUG
+                    self?.vlog("PPG", "[diag] onSubscribe startPpgStreaming")
+                    #endif
+                    // **不再在 onSubscribe 就 completeOnce(nil)**
+                },
+                onDispose: { [weak self] in
+                    #if DEBUG
+                    self?.vlog("PPG", "[diag] onDispose startPpgStreaming")
+                    #endif
                 }
-                // MARK: debug
-                .do(
-                    onSubscribe: { [weak self] in
-                        #if DEBUG
-                        self?.vlog("PPG", "[diag] onSubscribe startPpgStreaming")
-                        #endif
-                    },
-                    onDispose: { [weak self] in
-                        #if DEBUG
-                        self?.vlog("PPG", "[diag] onDispose startPpgStreaming")
-                        #endif
-                    }
-                )
-                .observe(on: MainScheduler.instance)
-                .subscribe(onNext: { [weak self] ppg in
+            )
+            .observe(on: MainScheduler.instance)
+            .subscribe(
+                onNext: { [weak self] ppg in
                     guard let self = self else { return }
                     guard (self.activeStreamsByDevice[deviceId] ?? []).contains(.ppg) else { return }
-                    
+
+                    // 回调完成标记要在onNext中标记
+                    // 回调是否完成以signaledReady为标记
+                    if !signaledReady {
+                        signaledReady = true
+                        completeOnce(nil)
+                        self.vlog("STREAM", "queue[\(deviceId.prefix(4))] did start(\(SignalKind.ppg))")
+                    }
+
                     let t = Date().timeIntervalSince1970
                     let n = ppg.samples.count
                     let ch = ppg.samples.first?.channelSamples.count ?? 0
                     let matrix = ppg.samples.map { $0.channelSamples.map(Int.init) }
-                    
-                    // 基于用户设置决定是否使用控制数据传送的大小限制技术
-                    if FeatureFlags.cappedTxEnabled{
-                        // 开启走“限制大小传输”：现切现发
+
+                    if FeatureFlags.cappedTxEnabled {
+                        // 限制大小传输：现切现发（保持你现有 PPGPacket 结构）
                         sendPPGCapped(
                             devLabel: dev,
                             fs: self.ppgFsSelected,
@@ -996,137 +1021,338 @@ final class PolarManager: NSObject, ObservableObject {
                             matrix: matrix
                         )
                         self.vlog("PPG", "capped batch n=\(n) ch=\(ch)")
-                        
                     } else {
-                        // 不开启限制传输，默认方法
                         self.seqPPG &+= 1
                         let pkt = PPGPacket(device: dev, t_device: t, seq: self.seqPPG, fs: self.ppgFsSelected, n: n, ch: ch, mU: matrix)
                         self.sendPacket(pkt)
                         self.vlog("PPG", "batch n=\(n) channels=\(ch)")
-                        
                     }
-                    
-                    // 丢包
+
+                    // 丢包估计
                     self.recordLoss(deviceId: deviceId, kind: .ppg, samples: n, fs: self.ppgFsSelected)
-                    
-                    // 记录最新ppg 第一通道
+
+                    // 记录最新 PPG 第一通道
                     let ch1 = matrix.last?.first
                     self.lastPPG1 = ch1
-                    
-                }, onError: { [weak self] err in
-                    guard let self = self else { return }
-                    #if DEBUG
-                    if self.verbose {
-                        self.log("PPG", "[diag] onError = \(err)")
+                },
+                onError: { [weak self] err in
+                    if self?.isAlreadyInStateError(err) == true {
+                        // 设备说“本来就在该状态”，视为幂等成功
+                        self?.vlog("PPG", "Stream already started. Treating as idempotent success.")
+                        self?.activeStreamsByDevice[deviceId]?.insert(.ppg)
+                        if !signaledReady { completeOnce(nil); signaledReady = true }
+                    } else {
+                        self?.vlog("PPG", "stream error[\(deviceId)]: \(err)")
+                        completeOnce(err)
                     }
-                    #endif
-                    self.log("PPG", "stream error[\(deviceId)]: \(err)")
-                })
-            log("STREAM", "PPG started (Verity)")
+                }
+            )
+        log("STREAM", "PPG starting (Verity)...")
+    }
+    private func stopPPG(deviceId: String, completion: @escaping OpCompletion) {
+        // 1) 取消订阅
+        ppgDisposable?.dispose()
+        ppgDisposable = nil
 
-        case .ppi: // Verity PPI（逐事件）
-            ppiDisposable?.dispose()
-            ppiDisposable = api
-                .startPpiStreaming(deviceId)
-                // MARK: debug
-                .do(
-                    onSubscribe: { [weak self] in
-                        guard let self = self else { return }
-                        #if DEBUG
-                        if self.verbose {
-                            self.log("PPI", "[diag] onSubscribe startPpiStreaming")
-                        }
-                        #endif
-                    },
-                    onDispose: { [weak self] in
-                        guard let self = self else { return }
-                        #if DEBUG
-                        if self.verbose {
-                            self.log("PPI", "[diag] onDispose startPpiStreaming")
-                        }
-                        #endif
+        // 2) 更新内部状态：该设备的 .vacc 已不再处于“启用中”
+        activeStreamsByDevice[deviceId]?.remove(.ppg)
+
+        // 3) 清理丢包统计/缓存
+        clearLoss(deviceId: deviceId, kind: .ppg)
+
+        // 4) 日志
+        log("STREAM", "PPG stopped (Verity)")
+
+        // 5) 关键：通知队列“这一条已完成”，让下一条操作能被继续处理
+        completion(nil)
+    }
+    
+    // MARK: startPPI
+    private func startPPI(deviceId: String, completion: @escaping OpCompletion) {
+        ppiDisposable?.dispose()
+        var isDone = false
+        let completeOnce: OpCompletion = { err in guard !isDone else { return }; isDone = true; completion(err) }
+        
+        var signaledReady = false
+
+        ppiDisposable = api.startPpiStreaming(deviceId)
+            .do(
+                onSubscribe: { [weak self] in
+                    #if DEBUG
+                    self?.vlog("PPI", "[diag] onSubscribe startPpiStreaming")
+                    #endif
+                    // **不再在 onSubscribe 就 completeOnce(nil)**
+                },
+                onDispose: { [weak self] in
+                    #if DEBUG
+                    self?.vlog("PPI", "[diag] onDispose startPpiStreaming")
+                    #endif
+                }
+            )
+            .observe(on: MainScheduler.instance)
+            .subscribe(
+                onNext: { [weak self] ppi in
+                    guard let self = self, (self.activeStreamsByDevice[deviceId] ?? []).contains(.ppi) else { return }
+                    
+                    // 首帧到达，宣布“就绪”
+                    if !signaledReady {
+                        signaledReady = true
+                        completeOnce(nil)
+                        self.vlog("STREAM", "queue[\(deviceId.prefix(4))] did start(\(SignalKind.ppi))")
                     }
-                )
-                .observe(on: MainScheduler.instance)
-                .subscribe(onNext: { [weak self] ppi in
-                    guard let self = self else { return }
-                    guard (self.activeStreamsByDevice[deviceId] ?? []).contains(.ppi) else { return }
+                    
                     let tHost = Date().timeIntervalSince1970
                     let dev = self.deviceLabel(for: deviceId)
                     
                     for s in ppi.samples {
                         self.seqPPI &+= 1
-                        let blocker = (s.blockerBit != 0) ? 1 : 0
-                        let skinStat = (s.skinContactStatus != 0) ? 1 : 0
-                        let skinSupp = (s.skinContactSupported != 0) ? 1 : 0
                         let te = BeatEventAligner.shared.alignPPI(deviceId: deviceId, ms: Int(s.ppInMs), tHost: tHost)
                         let pkt = PPIPacket(
                             device: dev, t_device: tHost, seq: self.seqPPI,
                             ms: Int(s.ppInMs), quality: Int(s.ppErrorEstimate),
-                            blocker: blocker, skinContact: skinStat, skinSupported: skinSupp,
+                            blocker: (s.blockerBit != 0) ? 1 : 0,
+                            skinContact: (s.skinContactStatus != 0) ? 1 : 0,
+                            skinSupported: (s.skinContactSupported != 0) ? 1 : 0,
                             te: te
                         )
                         self.sendPacket(pkt)
-                        self.log("PPI", "batch n=\(ppi.samples.count)")
-                        
-                        // 记录最新值
                         self.lastPpiMs = Int(s.ppInMs)
                     }
-                    //Task { @MainActor in AppStore.shared.markSent() }
-                }, onError: { [weak self] err in
-                    guard let self = self else { return }
-                    #if DEBUG
-                    if self.verbose {
-                        self.log("PPI", "[diag] onError = \(err)")
+                },
+                onError: { [weak self] err in
+                    if self?.isAlreadyInStateError(err) == true {
+                        self?.log("PPI", "Stream already started. Treating as idempotent success.")
+                        self?.activeStreamsByDevice[deviceId]?.insert(.ppi)
+                        if !signaledReady { completeOnce(nil); signaledReady = true }
+                        completeOnce(nil)
+                    } else {
+                        self?.log("PPI", "stream error[\(deviceId)]: \(err)")
+                        completeOnce(err)
                     }
-                    #endif
-                    self.log("PPI", "stream error[\(deviceId)]: \(err)")
-                    
-                })
-            log("STREAM", "PPI started (Verity)")
-        }
+                }
+            )
+        log("STREAM", "PPI starting (Verity)...")
     }
+    
+    private func stopPPI(deviceId: String, completion: @escaping OpCompletion) {
+        // 1) 取消订阅
+        ppiDisposable?.dispose()
+        ppiDisposable = nil
 
-    private func stop(kind: SignalKind, deviceId: String) {
-        // MARK: debgu
-        #if DEBUG
-        if self.verbose{
-            log(kind.shortDesc, "[diag] stop() entered")
-        }
-        #endif
+        // 2) 更新内部状态：该设备的 .vacc 已不再处于“启用中”
+        activeStreamsByDevice[deviceId]?.remove(.ppi)
+
+        // 3) 清理丢包统计/缓存
+        clearLoss(deviceId: deviceId, kind: .ppi)
+
+        // 4) 日志
+        log("STREAM", "PPI stopped (Verity)")
+
+        // 5) 关键：通知队列“这一条已完成”，让下一条操作能被继续处理
+        completion(nil)
+    }
+    
+    // MARK: startHACC
+    private func startHACC(deviceId: String, completion: @escaping OpCompletion) {
+        haccDisposable?.dispose()
+        var isDone = false
+        let completeOnce: OpCompletion = { err in guard !isDone else { return }; isDone = true; completion(err) }
         
-        switch kind {
-        case .hhr, .vhr, .rr:
-            // 是否真正停 HR 由 applySelection/ensureHrStream 控制
-            return
-        case .ecg:
-            ecgDisposable?.dispose();  ecgDisposable  = nil
-            lastECGuV = nil
-            clearLoss(deviceId: deviceId, kind: .ecg)
-            log("STREAM", "ECG stopped (H10)")
+        var signaledReady = false
+        
+        let dev = deviceLabel(for: deviceId)
+        var selSr: UInt32 = 0
 
-        case .ppg:
-            ppgDisposable?.dispose();  ppgDisposable  = nil
-            lastPPG1 = nil
-            clearLoss(deviceId: deviceId, kind: .ppg)
-            log("STREAM", "PPG stopped (Verity)")
+        haccDisposable = api.requestStreamSettings(deviceId, feature: .acc)
+            .asObservable()
+            .flatMap { [weak self] settings -> Observable<PolarAccData> in
+                guard let self = self else { return .empty() }
+                let s = settings.settings
+                let srSet = Array(s[.sampleRate] ?? []).sorted()
+                let rgSet = Array(s[.range] ?? []).sorted()
+                let rsSet = Array(s[.resolution] ?? []).sorted()
+                guard let sr = (srSet.contains(50) ? 50 : srSet.first) else {
+                    self.log("ACC", "H10 no sampleRate available, abort")
+                    return .empty()
+                }
+                selSr = sr
+                var chosenDict: [PolarSensorSetting.SettingType: UInt32] = [.sampleRate: sr]
+                if let rg = (rgSet.contains(4) ? 4 : rgSet.first) { chosenDict[.range] = rg }
+                if let rs = (rsSet.contains(16) ? 16 : rsSet.first) { chosenDict[.resolution] = rs }
+                let chosen = PolarSensorSetting(chosenDict)
+                self.log("ACC", "H10 start fs=\(sr)Hz range=\(chosenDict[.range] ?? 0)G res=\(chosenDict[.resolution] ?? 0)bit")
+                return self.api.startAccStreaming(deviceId, settings: chosen)
+            }
+            .do(
+                onSubscribe: { [weak self] in
+                    #if DEBUG
+                    self?.vlog("HACC", "[diag] onSubscribe startAccStreaming")
+                    #endif
+                },
+                onDispose: { [weak self] in
+                    #if DEBUG
+                    self?.vlog("HACC", "[diag] onDispose startAccStreaming")
+                    #endif
+                }
+            )
+            .observe(on: MainScheduler.instance)
+            .subscribe(
+                onNext: { [weak self] acc in
+                    guard let self = self, (self.activeStreamsByDevice[deviceId] ?? []).contains(.hacc) else { return }
+                    
+                    // 首帧到达，宣布“就绪”
+                    if !signaledReady {
+                        signaledReady = true
+                        completeOnce(nil)
+                        self.vlog("STREAM", "queue[\(deviceId.prefix(4))] did start(\(SignalKind.hacc))")
+                    }
+                    
+                    let t = Date().timeIntervalSince1970
+                    let triples = acc.map { [Int($0.x), Int($0.y), Int($0.z)] }
+                    let fsInt = selSr == 0 ? 50 : Int(selSr)
+                    if FeatureFlags.cappedTxEnabled {
+                        self.sendACCCapped(devLabel: dev, fs: fsInt, rangeG: 4, seqCounter: &self.seqHACC, baseTime: t, triples: triples, kind: .hacc)
+                    } else {
+                        self.seqHACC &+= 1
+                        let pkt = ACCPacket(device: dev, t_device: t, seq: self.seqHACC, fs: fsInt, mG: triples, n: triples.count, range_g: 4)
+                        self.sendPacket(pkt)
+                    }
+                    self.recordLoss(deviceId: deviceId, kind: .hacc, samples: triples.count, fs: fsInt)
+                },
+                onError: { [weak self] err in
+                    if self?.isAlreadyInStateError(err) == true {
+                        self?.log("HACC", "Stream already started. Treating as idempotent success.")
+                        self?.activeStreamsByDevice[deviceId]?.insert(.hacc)
+                        if !signaledReady { completeOnce(nil); signaledReady = true }
+                        completeOnce(nil)
+                    } else {
+                        self?.log("ACC", "H10 stream error[\(deviceId)]: \(err)")
+                        completeOnce(err)
+                    }
+                }
+            )
+        log("STREAM", "ACC starting (H10)...")
+    }
+    private func stopHACC(deviceId: String, completion: @escaping OpCompletion) {
+        // 1) 取消订阅
+        haccDisposable?.dispose()
+        haccDisposable = nil
 
-        case .ppi:
-            ppiDisposable?.dispose();  ppiDisposable  = nil
-            lastPpiMs = nil
-            // PPI 属于事件流，通常不算丢包；若未来加窗口统计，可在此 clearLoss(...)
-            log("STREAM", "PPI stopped (Verity)")
+        // 2) 更新内部状态：该设备的 .vacc 已不再处于“启用中”
+        activeStreamsByDevice[deviceId]?.remove(.hacc)
 
-        case .hacc:
-            haccDisposable?.dispose(); haccDisposable = nil
-            clearLoss(deviceId: deviceId, kind: .hacc)
-            log("STREAM", "ACC stopped (H10)")
+        // 3) 清理丢包统计/缓存
+        clearLoss(deviceId: deviceId, kind: .hacc)
 
-        case .vacc:
-            vaccDisposable?.dispose(); vaccDisposable = nil
-            clearLoss(deviceId: deviceId, kind: .vacc)
-            log("STREAM", "ACC stopped (Verity)")
-        }
+        // 4) 日志
+        log("STREAM", "HACC stopped (H10)")
+
+        // 5) 关键：通知队列“这一条已完成”，让下一条操作能被继续处理
+        completion(nil)
+    }
+    
+    // MARK: startVACC
+    private func startVACC(deviceId: String, completion: @escaping OpCompletion) {
+        vaccDisposable?.dispose()
+        var isDone = false
+        let completeOnce: OpCompletion = { err in guard !isDone else { return }; isDone = true; completion(err) }
+        var signaledReady = false
+        
+        let dev = deviceLabel(for: deviceId)
+        var selSr: UInt32 = 0
+        var selRg: UInt32 = 0
+
+        vaccDisposable = api.requestStreamSettings(deviceId, feature: .acc)
+            .asObservable()
+            .flatMap { [weak self] (settings: PolarSensorSetting) -> Observable<PolarAccData> in
+                guard let self = self else { return .empty() }
+                let s = settings.settings
+                let srSet = Array(s[.sampleRate] ?? []).sorted()
+                let rgSet = Array(s[.range] ?? []).sorted()
+                let rsSet = Array(s[.resolution] ?? []).sorted()
+                guard let sr = (srSet.contains(52) ? 52 : (srSet.contains(50) ? 50 : srSet.first)) else {
+                    self.log("ACC", "Verity no sampleRate available, abort")
+                    return .empty()
+                }
+                selSr = sr
+                var chosen: [PolarSensorSetting.SettingType: UInt32] = [.sampleRate: sr]
+                if let rg = (rgSet.contains(8) ? 8 : (rgSet.contains(4) ? 4 : rgSet.first)) {
+                    chosen[.range] = rg; selRg = rg
+                } else { selRg = 0 }
+                if let rs = (rsSet.contains(16) ? 16 : rsSet.first) { chosen[.resolution] = rs }
+                if let ch = Array(s[.channels] ?? []).first { chosen[.channels] = ch }
+                let setting = PolarSensorSetting(chosen)
+                self.log("ACC", "Verity start fs=\(sr)Hz range=\(selRg)G res=\(chosen[.resolution] ?? 0)bit")
+                return self.api.startAccStreaming(deviceId, settings: setting)
+            }
+            .do(
+                onSubscribe: { [weak self] in
+                    #if DEBUG
+                    self?.vlog("ACC", "[diag] onSubscribe startAccStreaming")
+                    #endif
+                },
+                onDispose: { [weak self] in
+                    #if DEBUG
+                    self?.vlog("ACC", "[diag] onDispose startAccStreaming")
+                    #endif
+                }
+            )
+            .observe(on: MainScheduler.instance)
+            .subscribe(
+                onNext: { [weak self] acc in
+                    guard let self = self, (self.activeStreamsByDevice[deviceId] ?? []).contains(.vacc) else { return }
+                    
+                    // 首帧到达，宣布“就绪”
+                    if !signaledReady {
+                        signaledReady = true
+                        completeOnce(nil)
+                        self.vlog("STREAM", "queue[\(deviceId.prefix(4))] did start(\(SignalKind.vacc))")
+                    }
+                    
+                    let t = Date().timeIntervalSince1970
+                    let triples = acc.map { [Int($0.x), Int($0.y), Int($0.z)] }
+                    let fsInt = selSr == 0 ? 52 : Int(selSr)
+                    let rangeInt = selRg == 0 ? 8 : Int(selRg)
+                    if FeatureFlags.cappedTxEnabled {
+                        self.sendACCCapped(devLabel: dev, fs: fsInt, rangeG: rangeInt, seqCounter: &self.seqVACC, baseTime: t, triples: triples, kind: .vacc)
+                    } else {
+                        self.seqVACC &+= 1
+                        let pkt = ACCPacket(device: dev, t_device: t, seq: self.seqVACC, fs: fsInt, mG: triples, n: triples.count, range_g: rangeInt)
+                        self.sendPacket(pkt)
+                    }
+                    self.recordLoss(deviceId: deviceId, kind: .vacc, samples: triples.count, fs: fsInt)
+                },
+                onError: { [weak self] err in
+                    if self?.isAlreadyInStateError(err) == true {
+                        self?.log("VACC", "Stream already started. Treating as idempotent success.")
+                        self?.activeStreamsByDevice[deviceId]?.insert(.vacc)
+                        if !signaledReady { completeOnce(nil); signaledReady = true }
+                        completeOnce(nil)
+                    } else {
+                        self?.log("ACC", "Verity stream error[\(deviceId)]: \(err)")
+                        completeOnce(err)
+                    }
+                }
+            )
+        log("STREAM", "ACC starting (Verity)...")
+    }
+    
+    private func stopVACC(deviceId: String, completion: @escaping OpCompletion) {
+        // 1) 取消订阅
+        vaccDisposable?.dispose()
+        vaccDisposable = nil
+
+        // 2) 更新内部状态：该设备的 .vacc 已不再处于“启用中”
+        activeStreamsByDevice[deviceId]?.remove(.vacc)
+
+        // 3) 清理丢包统计/缓存
+        clearLoss(deviceId: deviceId, kind: .vacc)
+
+        // 4) 日志
+        log("STREAM", "VACC stopped (Verity)")
+
+        // 5) 关键：通知队列“这一条已完成”，让下一条操作能被继续处理
+        completion(nil)
     }
 
 }
@@ -1168,6 +1394,7 @@ extension PolarManager: PolarBleApiObserver {
         opSerial.async { [weak self] in
             self?.opQueueByDevice[id] = []
             self?.opProcessingByDevice.remove(id)
+            self?.opCurrentByDevice.removeValue(forKey: id)
         }
         
         log("CONNECT", "已断开: \(id) pairingError=\(pairingError)")
@@ -1217,3 +1444,6 @@ extension PolarManager: PolarBleApiDeviceFeaturesObserver {
         print("[FEATURE] ready @\(identifier): \(feature)")
     }
 }
+
+// MARK: - Concurrency bridging for GCD closures
+extension PolarManager: @unchecked Sendable {}
