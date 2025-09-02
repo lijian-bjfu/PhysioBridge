@@ -53,6 +53,8 @@ final class UDPSenderService {
         }
 
         conn.start(queue: queue)
+        // 让这条 UDP 连接接收电脑端的 ping 并回 pong
+        PingPongResponder.shared.attach(to: conn)
     }
 
     func send(_ string: String, onDelivered: (() -> Void)? = nil) {

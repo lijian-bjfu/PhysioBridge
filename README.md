@@ -150,6 +150,10 @@ Polar 的 SDK 有一个容易忽略但对实验至关重要的差异：ECG/PPG/A
 
 电脑端的职责更加单一。统一入口脚本 `bridge_hub.py` 启动后会打印本会话 `ID`、`UDP` 监听地址、旁路日志路径，并立即创建两条“基础” LSL 流：`PB_UDP`（所有原始 JSON 文本照单全收，便于事后排查）与 `PB_MARKERS`（只收控制流的文本标签）。随后，hub 载入“翻译器”（当前是 `polar_numberic.py`），它的工作原则很像“编解码插件”：遇到 `{"type":"ecg"}` 就把阵列解包、附上单位和标称采样率，映射到 `PB_ECG_H10` 这样的数值型 LSL 流；遇到 `{"type":"ppg"}` 就生成 `PB_PPG_Verity` 四通道流；`ACC` 则是三通道 `mG`；`HR` 映射为事件型 `bpm` 流；`RR` 和 `PPI` 则映射为“单事件”流，其中 `PPI` 按 Polar SDK 的定义扩成五通道：`ms, quality, blocker, skinContact, skinSupported`。翻译器只做“面向物理量的轻处理”，不做任何跨设备、跨时钟的复杂推断，不做分析意义上的清洗或滤波，也不做二次估计；它只负责把 iOS 端已经说清楚的报文，尽可能“无损”地转为 LSL 生态熟悉的结构与单位。首次见到某类报文时，hub 会即时创建对应的 LSL 流并在控制台打印 "[LSL] create PB_... stype=... ch=... fs=..."，提醒 LabRecorder 端刷新；`PPI` 因为设备端批处理，会在会话开始十几秒后才出现，此时 hub 会后补创建该流。整个过程中，基础文本流 `PB_UDP` 一直在旁路记录所有原始 JSON，便于对照核验或重放。
 
+bridge_hub 在控制台按流持续输出网络体征：丢包率、到达速率、抖动与近 60 秒缺口计数；同时通过 Mac↔iOS 的轻量 Ping/Pong 计算 RTT 与主机时钟偏移，用于标注“网络在何时开始变差”。所有指标会以 JSONL 同步落盘，配套脚本 `UDP2LSL/Visual and Check/udp_packet_quality_report.py` 可一键生成 Markdown 报告与曲线（RTT、loss、gap 率），给出“可用/警告/不建议”的人话结论。默认已把 Ping/Pong 流量排除在丢包统计之外，避免误判。若遇到拥堵网络，建议将单包负载上限从 1200B 下调到 600–900B，并优先使用手机热点或电脑端互联网共享以减小分片与竞争。
+
+为降低单点失败风险，提供与 LabRecorder 并行的镜像录制：运行 `lsl_mirror.py` 自动发现当前会话的全部 LSL 流，并将每条流实时写入 `UDP2LSL/Data/mirror_lsl_data/<会话>/` 下的 Parquet。镜像不依赖 LabRecorder，可独立回放或导出；脚本 `mirror_parquet_to_csv.py` 会把镜像数据转换为与主线 `polar_xdf_to_csv.py` 相同命名与列规范的 CSV，便于后续工具直接复用。为验证一致性，`compare_mirror_vs_main.py` 采用“流覆盖一致性 + Markers（baseline/stop）对齐 + 分段统计 + 抽样时间快检”的口径，避免用总行数/起止时间这种易误导指标，能快速判断“镜像是否可作为主线的等价备份”。
+
 完成记录之后，需要对记录的数据质量评估。`polar_check_xdf.py` 先做结构体检：它读取 `XDF`，罗列出现了哪些流、每条流的通道数/采样率/时长、是否覆盖实验时间段、是否缺口过大等，并给出“是否达到预期”的直观结论；如果只看到基础流、看不到数值流，它会提示“可能手机端尚未开始采集或 PPI 慢启动”。随后可以用 `polar_xdf_to_csv.py` 把各流转为 `CSV`，同时生成一份文字报告，清楚写出每个 `CSV` 的含义、单位、行列数，尤其把 `RR/PPI` 的 `te` 一并落列，减少后续对齐的摩擦。最后，`polar_data_plot_validity.py` 画出 `HR` vs `PPI/RR` 的叠加、`PPG` 连续性与通道一致性、`ACC` 活动指数、`Poincaré/Tachogram` 等，并给出依据经验阈值的 `PASS/WARN/FAIL` 判定。这样，实验当场就能知道“这段数据能不能用”，避免把不合格的记录带回去才发现问题。
 
 所有这些机制最终指向两点：一是职责清晰。iOS 端用 PM + AS 面向设备和用户，把可订阅能力、流的生命周期、Beat 级 te 对齐、UDP 发包做好；电脑端用一个 `bridge_hub.py` 承担所有外设对接，翻译器以“插件”方式增删，不会把核心桥接器越改越大；记录之后的检查/转换/可视化独立成工具脚本，互不污染。二是时间轴可信。等间隔的波形流（`ECG/PPG/ACC`）靠 LSL 的 `local_clock` 保序；不等间隔事件（`RR/PPI`）靠 iOS 侧的对齐器给出 `te`；控制流的标记单独存在，不混淆物理量。哪怕设备在会话中段加入，或 `PPI` 晚到，只要 `te` 在，后续就能严谨地把它们拼回同一条时间线。
@@ -162,232 +166,155 @@ Polar 的 SDK 有一个容易忽略但对实验至关重要的差异：ECG/PPG/A
 
 **iOS 采集端（PolarBridge App）**
 
-- `AppStore.swift`（全局状态 / 协调中心）：
-应用的“总控台”。单一数据源（Single Source of Truth），管理蓝牙可用性、设备连接摘要、信号选择、采集生命周期（开始/停止/计时）、Subject 信息（PID/SID）与 UI 派生状态；对 PolarManager 做选择下发（applySelectionToConnectedDevices()），并承接设置页的配置变更（UDP 目标、功能开关），统一广播给业务层。
-
-- `FeatureFlags.swift`（特性开关与参数）
-维护运行期的“策略级”配置：progressLogEnabled（采集进度卡可视化）、cappedTxEnabled（尺寸限载开关）、maxPacketBytes（单包上限，默认 1200B）。与设置页双向绑定，App 启动及变更时由 AppStore 拉通到 PolarManager / UDPSenderService。
-
-PolarManager.swift
+- `AppStore.swift`（全局状态 / 协调中心）  
+    应用的“总控台”。单一数据源，管理蓝牙可用性、设备连接摘要、信号选择、采集生命周期（开始/停止/计时）、Subject 信息与 UI 派生状态；对 `PolarManager` 做选择下发（`applySelectionToConnectedDevices()`），并承接设置页的配置变更（UDP 目标、功能开关），统一广播给业务层。
     
-- `PolarManager.swift`（设备接入 / 数据源头）
-对 Polar BLE SDK 的封装：扫描、连接、能力探测与订阅装配；为 ECG/ACC/PPG/HR/RR/PPI 建立 RxSwift 流并在回调里完成样本打包与UDP 发送；内置每设备串行操作队列，保证启停顺序化，消除 Already in state；实现尺寸限载（针对定频流按通道×分辨率计算批量上限，超出则切包）；保持序列号与时间戳一致性；发布设备电量、RSSI、发现列表与（可选）丢包估计等只读信息供 UI 订阅。
-
-- `UDPSenderService.swift`（轻量 UDP 传输层）
-管理 NWConnection、目标地址应用（applyTarget）与异步发送队列。聚焦“把给定字节可靠送出”，不参与业务语义；尺寸限载逻辑由 PolarManager 在序列化前决定，服务层只负责排队与回调。
+- `FeatureFlags.swift`（特性开关与参数）  
+    `progressLogEnabled`（采集进度卡可视化）、`cappedTxEnabled`（尺寸限载开关）、`maxPacketBytes`（单包上限，默认 1200B，可改 600–900B 以降丢包风险）。
     
-- `TelemetryModels.swift`（传输模型）
-**数据协议的事实标准**。统一定义 UDP JSON 载荷：数据类型（hr/rr/ppi/ecg/acc/ppg/marker）、设备/来源、序列号、采样率、通道、单位与时间戳等；确保上下游（Python/LSL）零歧义解析。不同信号有不同的 JSON 结构与单位：
+- `PolarManager.swift`（设备接入 / 数据源头）  
+    封装 Polar BLE SDK：扫描、连接、能力探测与订阅装配；为 ECG/ACC/PPG/HR/RR/PPI 建立流并在回调里完成样本打包与 UDP 发送；内置每设备串行操作队列，保证启停顺序化；实现尺寸限载（定频流按通道×分辨率计算批量上限，超出则切包）；保持序列号与时间戳一致性。
     
-    - ECG：`{"type":"ecg","fs":130,"uV":[…],…}`
-        
-    - PPG：`{"type":"ppg","fs":55,"ch":4,"mU":[…],…}`（22-bit 原始计数）
-        
-    - ACC：`{"type":"acc","fs":50|52,"mG":[[x,y,z],…],…}`
-        
-    - HR：`{"type":"hr","bpm":…}`
-        
-    - RR：`{"type":"rr","ms":…,"te":…}`（不等间隔事件，带 **事件时刻 te**）
-        
-    - PPI：`{"type":"ppi","ms":…,"quality":…,"blocker":0/1,"skinContact":0/1,"skinSupported":0/1,"te":…}`
-        
-    - 标记：`{"type":"marker","label":"baseline_start",…}`
-        
-- `BeatEventAligner.swift`（心搏事件配时）
-针对 RR/PPI 推导逐心搏时间标注，提供与 1 Hz HR 对齐所需的时间语义支撑（分析侧再做窗口化聚合）。
-
-- `CollectView`
-采集操作主界面：信号选择、开始/停止、阶段标签；依据 FeatureFlags 决定是否显示采集进度卡。
-
-- `ProgressLogView` / `ProgressLogViewModel`
-“打印机风格”瀑布流：按固定步进（默认 2 s）对实时数据做抽样与格式化输出，黑底绿字、分割线与 MARK 高亮；完全受 progressLogEnabled 控制，不参与任何业务决策。
-
-- `SettingsView` / `UdpSettingsSheetView` / `HomeView`
-设置入口与界面：UDP 目标、尺寸限载开关与上限、是否显示进度卡；保存时调用 AppStore 同步到各层。
-
-- `BluetoothManager.swift`
-独立管理 CBCentralManager，向上发布系统级蓝牙状态；遵循“系统 → Store → VM → UI”的单向数据流。
-
-- `SubjectInfoSheetView.swift`
-采集参与者信息（PID/SID），写入持久化并通过 AppStore 同步全局。
+- `UDPSenderService.swift`（轻量 UDP 传输层）  
+    管理连接、目标地址应用与异步发送队列。只负责“把字节送出”，不参与业务语义。
     
-- `HomeView.swift` / `CollectView.swift` / `DeviceState.swift`：UI 与状态渲染。Home 负责发现/连接；Collect 负责信号选择与打标；`DeviceState` 是设备与信号的枚举/映射（含 `sfSymbol`、前缀 VHR/HHR/VACC/HACC 等）。
+- `TelemetryModels.swift`（传输模型）  
+    UDP JSON 事实标准：不同信号使用各自语义与单位。RR/PPI 事件含 `te`（事件时刻，便于与 LSL 对齐）。Marker 以简洁文本事件承载。
     
+- 其余 UI/状态文件（`CollectView`、`SettingsView`、`ProgressLogView*`、`BluetoothManager.swift` 等）与原说明一致。
+    
+
 **桌面桥接/检查端（UDP→LSL 与质检工具）**
 
-- `bridge_hub.py`：**唯一需要手动运行的入口**。
+- `bridge_hub.py`：**唯一必须手动运行的入口**
     
-    1. 开两个“基础” LSL 文本流：`PB_UDP`（原始 JSON 旁路流）和 `PB_MARKERS`（标记流）；
+    1. 创建基础 LSL 文本流：`PB_UDP`（原始 JSON 旁路）与 `PB_MARKERS`（标记）；
         
     2. 监听 UDP，把 JSON 路由给翻译器；
         
-    3. 按需**动态**创建数值型 LSL 流（ECG/ACC/HR/RR/PPG/PPI），并推送样本。
+    3. 按需动态创建数值型 LSL 流（ECG/ACC/HR/RR/PPG/PPI），推送样本；
         
-- `Translators/polar_numberic.py`：**翻译器插件**。把 iOS 端 JSON 包“无损”转为 LSL 数值流：
+    4. 同步记录**UDP 网络质量指标**到 `UDP2LSL/logs/<会话>/metrics.jsonl`（loss/rate/jitter/gap60s + Ping/Pong RTT 与偏移）。
+        
+- `Translators/polar_numberic.py`（翻译器插件）  
+    无损把 iOS JSON 转为 LSL 数值流：`PB_ECG_*`、`PB_ACC_*`、`PB_PPG_*`、`PB_HR_*`、`PB_RR_*`、`PB_PPI_*`（列与单位与导出 CSV 对齐）。
     
-    - ECG→`PB_ECG_H10`（1ch / 130 Hz / uV）
-        
-    - ACC→`PB_ACC_H10`（1ch×3 / 50 Hz / mG）、`PB_ACC_Verity`（1ch×3 / 52 Hz / mG）
-        
-    - HR→`PB_HR_H10`、`PB_HR_Verity`（事件流 bpm）
-        
-    - RR→`PB_RR_H10`（事件流 ms + te）
-        
-    - PPI→`PB_PPI_Verity`（事件流 5ch：ms、quality、blocker、skinContact、skinSupported + te）
-        
-- `Libs/`：桥接侧的小工具
+- `Libs/`  
+    `lsl_registry.py`（LSL outlet 管理）、`json_guard.py`（输入健壮化）、`clock_sync.py`（时钟提示）、`udp_metrics.py`（丢包/速率/抖动统计）、`ping_pong.py`（RTT/偏移估计）。
     
-    - `lsl_registry.py`（LSL outlet 注册管理）、`json_guard.py`（输入健壮化）、`clock_sync.py`（保留，用于必要的时钟提示）。
-        
-- `Visual and Check/`：质检与可视化
+- `Visual and Check/`  
+    `polar_check_xdf.py`（结构体检）、`polar_xdf_to_csv.py`（主线 CSV 导出，写入 `UDP2LSL/Data/main_lsl_data/<会话>/`）、`polar_data_plot_validity.py`（内容体检）；  
+    **新增**：`udp_packet_quality_report.py`（把 `logs/<会话>/metrics.jsonl` 转成报告与图）、`lsl_mirror.py`（LSL 级镜像录制到 Parquet，写入 `UDP2LSL/Data/mirror_lsl_data/<会话>/`）、`mirror_parquet_to_csv.py`（镜像转 CSV，命名与主线一致）、`compare_mirror_vs_main.py`（主线 vs 镜像一致性对比）。
     
-    - `polar_check_xdf.py`：**结构体检**（是否有期望的 LSL 数值流、通道/采样率/跨度/覆盖度）。
-        
-    - `polar_xdf_to_csv.py`：**规范导出 CSV**（附一份人读得懂的报告），RR/PPI 会把 **te** 落列。
-        
-    - `polar_data_plot_validity.py`：**内容体检**（HR↔RR/PPI 叠加、PPG 连续性与通道一致性、ACC 活动指数、Poincaré/Tachogram 等，给出 PASS/WARN/FAIL）。
-        
 
 ---
 
 ## 构建与运行
 
-**iOS 端**
-
-- **设备**：Polar H10（胸带，ECG/ACC/HR/RR），Polar Verity Sense（臂带，PPG/PPI/ACC/HR）。
-    
-- **系统**：建议使用近两代 iOS（例如 iOS 16/17），Xcode 与 SwiftUI 正常构建即可。
-    
-- **依赖**：Polar BLE SDK 6.5.0（RxSwift 版）、RxSwift、SwiftUI（按项目配置即可）。
-    
-- **网络**：iPhone 与电脑需在**同一局域网**；App 中手动填电脑的 IPv4 与 UDP 端口。
-    
+**iOS 端**  
+设备与系统、依赖与网络要求同前述，不再赘述。
 
 **桌面端**
 
-- **操作系统**：macOS/Windows/Linux 任一可跑 Python 与 LabRecorder 的环境。
+- 操作系统：macOS/Windows/Linux
     
-- **Python**：3.10/3.11（基于 3.11 开发）。
+- Python：3.10/3.11
     
-- **依赖**（pip 安装）：
+- 依赖（含 Parquet/绘图）：
     
-    `pip install pylsl pyxdf numpy pandas matplotlib`
+    `pip install pylsl pyxdf numpy pandas matplotlib pyarrow`
     
-- **LabRecorder**：从 LSL 官方发布页下载对应平台的二进制，解压后直接运行（无需安装）。
+- LabRecorder：按平台下载解压即可运行。
     
 
 ---
 
 ## 采集流程
 
-1. **设备佩戴**  
-    H10 置于胸骨上方、良好润湿电极；Verity 紧贴上臂，传感窗朝内、避免强光直射。
+1. **启动桥接**：运行 `bridge_hub.py`。终端会显示会话 ID、UDP 监听（默认本机 IPv4:端口）、已加载翻译器与日志目录：`UDP2LSL/logs/<会话>/metrics.jsonl`。
     
-2. **启动桥接**  
-    桌面运行 `bridge_hub.py`。终端会打印会话信息、UDP 监听端口、已加载的翻译器。如果 IP 检测到多张网卡，你会看到一个“建议地址”，以便在手机端填写。
+2. **（可选）启动镜像**：另开终端（或在编辑器新控制台）运行 `lsl_mirror.py`。它会自动发现当前 LSL 流，并实时写入 `UDP2LSL/Data/mirror_lsl_data/<会话>/`。按 **ESC** 停止镜像。
     
-3. **填写 UDP 目标**  
-    在 App 中设置电脑的 IPv4 与端口（与 `bridge_hub.py` 一致）。
+3. **手机端设置**：在 App 的设置页填入电脑 IPv4 与端口（与 `bridge_hub.py` 一致）。
+    
+4. **连接设备与选择信号**：在 App 连接 H10/Verity，勾选需要的 ECG/ACC/PPG/HR/RR/PPI。提示：Verity 的 PPI 通常在开始后十几秒才出现。
+    
+5. **LabRecorder 录制**：打开 LabRecorder，看到 `PB_*` 数值流与 `PB_MARKERS` 后点击 **Start**。若提示离线流，先让手机开始 2–3 秒再刷新选择。
+    
+6. **打标与结束**：在 App 打 baseline/诱导/干预等标记。结束顺序建议：先手机端停止采集，再 LabRecorder **Stop**，最后在镜像终端按 **ESC** 停止（若开启了镜像）。
+    
+7. **（可选）网络质量报告**：运行 `udp_packet_quality_report.py`，它会读取 `UDP2LSL/logs/<会话>/metrics.jsonl` 并生成 `*_udp_quality.md` 与图（RTT、loss、gap 率，位于同一 `<会话>` 目录）。
+    
 
-4. **手机端连接设备**  
-    打开 App 首页，等待扫描出现设备卡片；点击连接 H10 与/或 Verity。连接成功后，`CollectView` 的“选择数据”会自动显示**当前设备的可用信号**。
-    
-5. **选择信号并开始采集**  
-    在 `CollectView` 勾选需要的信号（ECG/ACC/HR/RR/PPG/PPI）。
-    
-    - **提示**：Verity 的 **PPI** 属于“慢启动 + 批量回送”，通常**十几秒后**才会出现第一批事件。
-        
-6. **开启 LabRecorder**  
-    先打开 LabRecorder 界面，刷新或等待几秒，直到出现：
-    
-    - 数值流：`PB_ECG_* / PB_ACC_* / PB_HR_* / PB_RR_* / PB_PPG_* / PB_PPI_*`
-        
-    - 文本流：`PB_UDP`（旁路）、`PB_MARKERS`（标记）  
-        选中需要的流后点击 **Start** 开始录制。
+**数据落地路径（规范）**
 
-    - 注意：LabRecorder极易崩溃。建议点击开始采集后稍等十几秒，然后停止采集，再开LabRecorder。所有LSL流都选择后，再次手机端开启，可减少 LabRecorder 崩溃概率
-        
-7. **打标与结束**  
-    采集中可在 App 里触发 baseline / 诱导 / 干预等标记（走 `PB_MARKERS` 流）。完成后先在 App 里停止采集，再在 LabRecorder 里 **Stop**。
+- 主线 CSV：`UDP2LSL/Data/main_lsl_data/<会话>/..._<kind>_<device>.csv`（由 `polar_xdf_to_csv.py` 生成）
     
-8. **质量体检**  
-    用 `polar_check_xdf.py` 打开生成的 `.xdf` 文件，确认结构与覆盖度；再用 `polar_xdf_to_csv.py` 产出规范 CSV 与报告；需要时用 `polar_data_plot_validity.py` 画图与自动判级。
+- （可选）镜像 Parquet：`UDP2LSL/Data/mirror_lsl_data/<会话>/*.parquet`（`lsl_mirror.py`）
+    
+- （可选）镜像 CSV：同目录，由 `mirror_parquet_to_csv.py` 生成，命名与主线一致
+    
+- 网络日志与报告：`UDP2LSL/logs/<会话>/metrics.jsonl`、`*_udp_quality.md`、`*_rtt.png`、`*_ecg_loss.png` 等
     
 
 ---
 
 ## 数据检查
 
-**1）结构体检：是否录到“对的流、对的参数”**  
-运行 `polar_check_xdf.py`，它会列出所有 LSL 流的 **name / type / 通道数 / 采样率 / 样本量 / 时间跨度**，并对“期望流”逐一 **PASS/WARN/FAIL**。  
-常见提醒：
+1）**结构体检（录到“对的流、对的参数”）**  
+`polar_check_xdf.py` 打开 `.xdf`，列出各流 name/type/通道/采样率/样本量/时长，对期望流逐项 PASS/WARN/FAIL。典型提醒：仅见 `PB_UDP/PB_MARKERS` 表示手机未开始或 PPI 慢启动；采样率异常请核查设备与 PM 日志。
 
-- 只看到 `PB_UDP` 和 `PB_MARKERS` 但看不到数值流：通常是**手机端还未开始采集**；或刚开始就打开 LabRecorder，**PPI 尚未慢启动**。
-    
-- 采样率异常（比如 PPG ≠ 55 Hz、ACC ≠ 50/52 Hz）：检查设备选择与 PM 的设置日志。
-    
+2）**CSV 导出（标准列与单位）**  
+`polar_xdf_to_csv.py` 将 XDF 导出到 `UDP2LSL/Data/main_lsl_data/<会话>/`，并生成文字说明。列规范：
 
-**2）CSV 导出：落标准列、带单位与解释**  
-运行 `polar_xdf_to_csv.py`，会在同目录产出若干 CSV 与一份文字报告。
-
-- ECG：`time_lsl, uV`
+- ECG：`time_lsl, uV`；ACC：`time_lsl, x_mG, y_mG, z_mG`；HR：`time_lsl, bpm`；
     
-- ACC：`time_lsl, x_mG, y_mG, z_mG`
+- RR（H10）：`time_lsl, ms, te`；PPI（Verity）：`time_lsl, ms, quality, blocker, skinContact, skinSupported, te`；
     
-- HR：`time_lsl, bpm`
-    
-- RR（H10）：`time_lsl, ms, te` ← **te 为事件时间（与 LSL local_clock 对齐）**
-    
-- PPI（Verity）：`time_lsl, ms, quality, blocker, skinContact, skinSupported, te`
-    
-- PPG：`time_lsl, ch1…ch4`（22-bit 计数；一个为环境光）  
-    报告会解释每列含义、单位与基本建议门限。
+- PPG：`time_lsl, ch1…ch4`（22-bit 计数，含环境光通道）。
     
 
-**3）内容体检：图形与自动打分（可选）**  
-运行 `polar_data_plot_validity.py`，会针对已导出的 CSV 生成：
+3）**内容体检（图与自动判级，可选）**  
+`polar_data_plot_validity.py` 输出 HR↔RR/PPI 叠加、PPG 连续性与一致性、ACC 活动指数、Poincaré/Tachogram 等，并给出 PASS/WARN/FAIL。
 
-- **HR ↔ RR/PPI 叠加**：看 MAE 与偏置；偏差大通常是节律不稳、质量门限过松或事件对齐不足。
+4）**镜像一致性（可选，主线与镜像对比）**
+
+- 先对镜像目录运行 `mirror_parquet_to_csv.py`，得到与主线一致的 CSV 命名与列。
     
-- **PPG 连续性与通道一致性**：看 completeness 与通道间相关；强光/饱和会让一致性变差。
+- 运行 `compare_mirror_vs_main.py`：
     
-- **ACC 活动指数**：高活动时段标记为 WARN，提示 PPG/RR 可能受伪影影响。
+    - 覆盖一致性：是否录到同一批流；
+        
+    - Markers 对齐：`baseline_start/stop` 差异 ≤50 ms 视为达标；
+        
+    - 统计特征：重叠窗口内 mean/median/std/p5/p95/min/max 与覆盖率接近；
+        
+    - 时间快检：抽样窗口的极值与互相关滞后（`lag_ms≈0` 为理想）。  
+        脚本会写 `compare_report.txt` 到主线会话目录。
+        
+
+5）**网络质量报告（可选）**  
+`udp_packet_quality_report.py` 读取 `logs/<会话>/metrics.jsonl` 并生成报告：
+
+- 建议口径：RTT 中位 <50 ms、稳定丢包 <2%、出现 `gap60s>0` 时定位问题时段；
     
-- **Poincaré & Tachogram**：节律散点与时域走势，用于直观看 HRV 形态。  
-    脚本会给出 **PASS/WARN/FAIL** 及简明理由；“FAIL”通常意味着需要重录或严格清洗。
+- 若网络波动，建议把 `maxPacketBytes` 调至 600–900B，并优先使用手机热点/电脑“互联网共享”。
     
 
 ---
 
 ## 注意事项
 
-**PPI 的“慢一拍”与延迟出现**  
-Verity 的 PPI 流程是**设备端估计 + 批量上报**：开始采集后需要十几秒才会有第一批事件，且相对于 ECG/PPG 有一个“算法与传输延迟”。我们在 iOS 侧已为每个 PPI 事件计算 `te` 并写入报文与 CSV，用它对齐其他流是更稳妥的做法。
-
-**HR 与 RR/PPI 的不一致**  
-HR 是设备侧的瞬时估算值，RR/PPI 是实际的间期事件。短时内 HR 与 RR/PPI 推导的 bpm 不完全一致是常见的；若 MAE 较大，优先相信 RR/PPI，并检查 PPI 质量（`quality` 门限、`blocker`、`skinContact`）。
-
-**PPG 的 55 Hz 与 ACC 的固定配置**  
-Verity 的 PPG 采样率目前可用档位即约 55 Hz；ACC 为 ~52 Hz（±8 G）；H10 的 ACC 可选 25/50/100/200 Hz（±2/4/8 G），ECG 固定 ~130 Hz。不是“越高越好”，而是“和目标分析匹配最好”。例如 HRV 对 RR/PPI 的采样不敏感，但对事件时间 `te` 的准确性敏感。
-
-**LabRecorder 的“红灯/离线”**  
-如果已在 LabRecorder 勾选流，但手机端**尚未产生该流**（例如 PPI 未到），它会报“有离线流”。经验做法：
-
-- 先让手机端开始采集 2–3 秒，等桥接端打印 `[LSL] create PB_...` 后，再回到 LabRecorder 勾选并 Start；
+- **PPI 慢启动**：Verity 的 PPI 为设备端估计并批量回送，开始后十几秒才出现。我们在 iOS 侧为每个事件写入 `te`，用于与等间隔波形对齐。
     
-- 若出现“离线”残留，关停 LabRecorder 重开即可（它缓存了上一次的流名）。
+- **HR 与 RR/PPI 的差异**：短时偏差常见；MAE 较大时优先信 RR/PPI，并结合 `quality/blocker/skinContact` 过滤。
     
-
-**网络与防火墙**  
-手机与电脑必须在**同一网段**。若桥接端长时间没有数据，先检查电脑的 IPv4 是否正确填入 App，macOS 防火墙是否允许 Python 接收 UDP。
-
-**双设备并行**  
-H10 与 Verity 可以**同时连接**并各自推流；选择信号时留意“设备前缀”（HHR/HACC、VHR/VACC）。互不影响的逐流开/停是为这个场景设计的。
-
-**数据清洗建议**（最简版）
-
-- PPI：`blocker==1` 直接丢弃；`skinContact==0` 的区段降权或剔除；`quality>30 ms` 丢弃、`20–30 ms` 低权或插值。
+- **PPG/ACC 固定配置**：Verity PPG≈55 Hz、ACC≈52 Hz；H10 ACC 可 25/50/100/200 Hz；ECG≈130 Hz。按分析目标合理选档，不追求“越高越好”。
     
-- PPG：0.3–0.5 Hz 高通去漂移 + 0.5–5 Hz 带通；与 ACC 高活动时段交叉屏蔽。
+- **LabRecorder 离线提示**：先让手机采集 2–3 秒，待桥接端打印 `[LSL] create PB_...` 后再在 LabRecorder 勾选与 Start，可减少离线与崩溃。
     
-- RR：与 ECG R 峰对齐（若有），以 `te` 为准；大于 20% 的瞬时跳变检查是否为漏搏/伪影。
+- **网络与防火墙**：手机与电脑同网段；无数据时先核对 IPv4 与端口，并允许 Python 接收 UDP。
+    
+- **双设备并行**：H10 与 Verity 可同时连接并各自推流；按设备前缀区分（HACC/HHR、VACC/VHR）。
+    
+- **最简清洗建议**：PPI `blocker==1` 直接丢弃，`quality>30 ms` 丢弃；PPG 做 0.3–0.5 Hz 高通去漂移并带通 0.5–5 Hz；RR 与 ECG R 峰对齐时以 `te` 为准。

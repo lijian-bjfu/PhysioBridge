@@ -453,18 +453,39 @@ def plot_ecg(t: np.ndarray, X: np.ndarray, out_png: Path, fs_hint: float, device
 #                      第2步：用这个新 main 函数完整替换旧的
 # ==============================================================================
 def main():
+
+    # 用户用系统窗口指定保存位置 -- 已不用
+    # if len(sys.argv) > 1:
+    #     root = Path(sys.argv[1]).resolve()
+    # elif CONFIG["use_tk"]:
+    #     try:
+    #         from tkinter import Tk, filedialog
+    #         tk_root = Tk(); tk_root.withdraw()
+    #         d = filedialog.askdirectory(title="选择包含 CSV 的目录")
+    #         root = Path(d) if d else None
+    #     except ImportError:
+    #         root = Path(input("请输入包含 CSV 的目录路径: ").strip())
+    # else:
+    #     root = Path(input("请输入包含 CSV 的目录路径: ").strip())
+
+    # 明确指定保存位置
+    # 若提供参数则用参数，否则默认选择 Data/main_lsl_data 下最新的会话目录
+    base = Path(__file__).resolve().parent.parent
+    default_root = base / "Data" / "main_lsl_data"
     if len(sys.argv) > 1:
         root = Path(sys.argv[1]).resolve()
-    elif CONFIG["use_tk"]:
-        try:
-            from tkinter import Tk, filedialog
-            tk_root = Tk(); tk_root.withdraw()
-            d = filedialog.askdirectory(title="选择包含 CSV 的目录")
-            root = Path(d) if d else None
-        except ImportError:
-            root = Path(input("请输入包含 CSV 的目录路径: ").strip())
     else:
-        root = Path(input("请输入包含 CSV 的目录路径: ").strip())
+        if not default_root.exists():
+            print(f"[FATAL] 默认目录不存在: {default_root}")
+            return
+        # 找最近修改的目录
+        candidates = [p for p in default_root.iterdir() if p.is_dir()]
+        if not candidates:
+            print(f"[FATAL] {default_root} 下没有任何会话目录")
+            return
+        root = max(candidates, key=lambda p: p.stat().st_mtime)
+
+    print(f"[INFO] 使用目录: {root}")
 
     if not root or not root.is_dir():
         print(f"[FATAL] 目录无效或未选择: {root}"); return

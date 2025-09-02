@@ -173,6 +173,7 @@ final class ProgressLogViewModel: ObservableObject {
         case .stim_end:           return "诱导_结束"
         case .intervention_start: return "干预_开始"
         case .intervention_end:   return "干预_结束"
+        case .stop:               return "停止采集“"
         }
     }
 

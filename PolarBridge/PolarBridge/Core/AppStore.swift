@@ -341,7 +341,7 @@ final class AppStore: ObservableObject {
         UserDefaults.standard.set(udpTarget.port, forKey: "udpPort")
         
         /// // 同步给两路 UDP（数据/标记）
-        dataSender.update(host: udpTarget.host, port: UInt16(udpTarget.port))
+        // dataSender.update(host: udpTarget.host, port: UInt16(udpTarget.port))
         UDPSenderService.shared.update(host: udpTarget.host, port: udpTarget.port)
 
         if let lanKey = NetworkInfo.lanKeyForMemory() {
@@ -488,6 +488,10 @@ final class AppStore: ObservableObject {
 
     func stopCollect() {
         guard isCollecting else { return }
+        
+        // 先发一个“停止采集”标记
+        MarkerBus.shared.emit(label: .stop, note: "user_tapped_stop")
+        
         isCollecting = false
 
         dataTimer?.invalidate(); dataTimer = nil
@@ -511,6 +515,7 @@ final class AppStore: ObservableObject {
         print("[Store] marker +=1 -> \(markerCount) label=\(label.rawValue)")
     }
     func canEmit(_ label: MarkerLabel) -> Bool {
+        if label == .stop {return isCollecting }
         return isCollecting && (markerAllowedNext == label)
     }
     func emitMarkerInOrder(_ label: MarkerLabel) {
@@ -518,6 +523,13 @@ final class AppStore: ObservableObject {
             print("[Store][MARK][REJECT] not allowed next=\(markerAllowedNext?.rawValue ?? "nil"), got=\(label.rawValue), isCollecting=\(isCollecting)")
             return
         }
+        
+        if label == .stop {
+            // 内部会先发 STOP 标记到 UDP/LSL，再停流
+            stopCollect()
+            return
+        }
+        
         let now = Date()
         switch label {
         case .baseline_start:
@@ -531,6 +543,8 @@ final class AppStore: ObservableObject {
             if intervStart == nil { intervStart = now }
         case .intervention_end:
             if let t0 = intervStart { intervAccum += now.timeIntervalSince(t0); intervStart = nil }
+        case .stop:
+            break
         }
         emitMarker(label)
         markerStep += 1

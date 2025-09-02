@@ -12,6 +12,7 @@ XDF → CSV 转换器（多流/多设备版）
 from __future__ import annotations
 import csv, json
 from pathlib import Path
+import sys
 from typing import Any, Dict, List, Optional, Tuple
 from collections import defaultdict
 
@@ -163,6 +164,7 @@ def _emit_report(out_dir: Path, stem: str, report: List[Dict[str, Any]]):
             for line in notes:
                 print(f"      · {line}")
 
+    # 根据用户在系统窗口选择的目录保存文件
     rpt_path = out_dir / f"{stem}_report.txt"
     with rpt_path.open("w", encoding="utf-8") as f:
         f.write(f"数据导出结果报告\n源文件: {stem}.xdf\n\n")
@@ -180,6 +182,7 @@ def _emit_report(out_dir: Path, stem: str, report: List[Dict[str, Any]]):
                 for line in notes:
                     f.write(f"  · {line}\n")
             f.write("\n")
+
     print(f"\n[DONE] CSV 输出目录：{out_dir}")
     print(f"[DONE] 报告文件：{rpt_path}")
 
@@ -339,6 +342,7 @@ def main():
     if len(sys.argv) >= 2:
         xdf_path = Path(sys.argv[1]).expanduser()
     else:
+        # 根据用户在系统窗口选择文件
         xdf_path = pick_file_dialog()
         if xdf_path is None:
             try:
@@ -349,9 +353,14 @@ def main():
     if xdf_path is None or not xdf_path.exists():
         print("[ERROR] 未提供有效 .xdf"); return
 
-    out_dir = pick_dir_dialog("选择 CSV 输出目录（取消则用默认）") \
-              or (xdf_path.parent / f"csv_{xdf_path.stem}")
+    # out_dir = pick_dir_dialog("选择 CSV 输出目录（取消则用默认）") \
+    #           or (xdf_path.parent / f"csv_{xdf_path.stem}")
+    # ensure_out(out_dir)
+    project_root = Path(__file__).resolve().parent.parent
+    out_root = project_root / "Data" / "main_lsl_data"
+    out_dir = out_root / xdf_path.stem
     ensure_out(out_dir)
+    print(f"[OUT] CSV 输出目录: {out_dir}")
 
     # 2) 读取 XDF
     try:
