@@ -166,7 +166,7 @@ def main():
     # 准备日志 在 recorder_data 下创建本次会话的专属文件夹
     # Path(CONFIG["LOGDIR"]).mkdir(parents=True, exist_ok=True)
     session_id = CONFIG.get("SESSION", time.strftime("S%Y%m%d-%H%M%S"))
-    session_dir = RECORDER_DATA_DIR / session_id
+    session_dir = RECORDER_DATA_DIR /  "logs" / session_id
     session_dir.mkdir(parents=True, exist_ok=True)
     print(f"[*] 本次会話數據與日誌將保存至: {session_dir}")
 

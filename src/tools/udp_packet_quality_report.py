@@ -302,7 +302,7 @@ def main():
 
     # out = Path(args.out) if args.out else mpath.with_name(mpath.stem.replace(".metrics", "") + "_udp_quality.md")
 
-    log_root = RECORDER_DATA_DIR / "log"
+    log_root = RECORDER_DATA_DIR / "logs"
     session_dir = find_latest_session_dir(log_root)
 
     # 1. 如果没有通过命令行提供目录，则弹窗让用户选择
