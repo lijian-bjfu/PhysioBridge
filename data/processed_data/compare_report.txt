@@ -1,0 +1,27 @@
+main : C:\Users\lijian\Desktop\Github\PhysioBridge\data\processed_data
+mirror: C:\Users\lijian\Desktop\Github\PhysioBridge\data\mirror_data\S20250902-221249
+
+[1] 流覆盖一致性
+both       : 5
+only_main  : []
+only_mirror: [('text', 'udp')]
+
+[2] Markers 对齐（ms）
+baseline_start: 0.0
+stop: 0.0
+stim_start: 0.0
+stim_end: 0.0
+intervention_start: 0.0
+intervention_end: 0.0
+
+[3] 统计特征一致性
+{"kind": "acc", "dev": "h10", "grade": "PASS", "overlap_s": 168.75, "cov_main": 1.0, "cov_mirror": 1.003, "median_rel_diff": 0.0}
+{"kind": "ecg", "dev": "h10", "grade": "PASS", "overlap_s": 168.75, "cov_main": 1.0, "cov_mirror": 1.005, "median_rel_diff": 0.0}
+{"kind": "hr", "dev": "h10", "grade": "PASS", "overlap_s": 168.75, "cov_main": 0.986, "cov_mirror": 0.986, "median_rel_diff": 0.0}
+{"kind": "rr", "dev": "h10", "grade": "PASS", "overlap_s": 168.75, "cov_main": 0.823, "cov_mirror": 0.823, "median_rel_diff": 0.0}
+
+[4] 时间快检
+{"kind": "acc", "dev": "h10", "grade": "FAIL", "extreme_ms": 527.1, "lag_ms": 0.0}
+{"kind": "ecg", "dev": "h10", "grade": "FAIL", "extreme_ms": 299.1, "lag_ms": 0.0}
+{"kind": "hr", "dev": "h10", "grade": "PASS", "extreme_ms": 0.0, "lag_ms": 0.0}
+{"kind": "rr", "dev": "h10", "grade": "PASS", "extreme_ms": 0.0, "lag_ms": 0.0}

@@ -1,0 +1,10 @@
+[DIR] C:\Users\lijian\Desktop\Github\PhysioBridge\data\recorder_data
+[FOUND] HR(-), RR(-), PPI(-), PPG(-), ACC(-), ECG(-), MARKERS(-)
+
+[OVERALL] -> N/A
+
+[CLEANING] 建议：
+  - PPI：丢弃 blocker==1；若 skinSupported==1，则 skinContact==0 区段降权/剔除；quality>30ms 丢弃，20–30ms 低权或插值。
+  - PPG：高通 0.3–0.5Hz 去漂移，带通 0.5–5Hz；高运动区（由 ACC 判定）谨慎使用。
+  - HR 对齐：以 RR/PPI 为准，HR 仅做参考；记录 HR 与 RR/PPI 的 MAE。
+  - 缺口：连续缺口 <1s 可线性插值；≥1s 标记缺测片段，分析时剔除。
