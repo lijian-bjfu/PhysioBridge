@@ -40,7 +40,7 @@ outlet = StreamOutlet(info)
 
 # CSV文件名将包含时间戳
 timestamp_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-csv_filename = f"../data/recorder_data/HKH/preview_{timestamp_str}.csv"
+csv_filename = f"{RECORDER_DATA_DIR}/HKH/preview_{timestamp_str}.csv"
 
 # =============================================================================
 # 2. 串口和协议参数设置

@@ -83,7 +83,7 @@ def export_hkh(st, stem: str, out_dir: Path, report: List[Dict[str,Any]]):
         return
 
     # --- 目标文件 ---
-    header = ["time_lsl", "ad"]  # 如果你希望与文档描述一致，可改成 ["time_lsl","BreathingValue"]
+    header = ["time_lsl","BreathingValue"]  # 如果你希望与文档描述一致，可改成 ["time_lsl","BreathingValue"]
     p = out_dir / f"{stem}_Respiration_HKH.csv"
 
     # --- 取数据并写盘 ---

@@ -25,16 +25,13 @@ project_root = os.getcwd()
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 # 从当前文件位置(utils)出发，向上走2层才能到达 PhysioBridge/ 根目录
-project_root = Path(__file__).resolve().parent
-if str(project_root) not in sys.path:
-    sys.path.insert(0, str(project_root))
-# 从我们统一的路径管理器中导入所有需要的数据路径
-from src.utils.paths import RECORDER_DATA_DIR
+# project_root = Path(__file__).resolve().parent
+# if str(project_root) not in sys.path:
+#     sys.path.insert(0, str(project_root))
+# # 从我们统一的路径管理器中导入所有需要的数据路径
+# from src.utils.paths import RECORDER_DATA_DIR
 
-# 从当前文件位置 (__file__) 出发，向上寻找项目根目录
-# 我们需要向上走3层 (polar -> bridges -> src) 才能到达 PhysioBridge/ 这个根目录
-project_root = Path(__file__).resolve().parent.parent.parent
-
+from paths import RECORDER_DATA_DIR, PROCESSED_DATA_DIR
 
 
 # =============================================================================
@@ -50,6 +47,9 @@ import select  # 为 ESC 轮询读取 stdin
 from pylsl import StreamInfo, StreamOutlet, local_clock
 
 # ========== 本项目内部依赖 (使用绝对路径) ==========
+# 从当前文件位置 (__file__) 出发，向上寻找项目根目录
+# 我们需要向上走3层 (polar -> bridges -> src) 才能到达 PhysioBridge/ 这个根目录
+project_root = Path(__file__).resolve().parent.parent.parent
 from src.utils.lsl_registry import LSLRegistry
 from src.utils.clock_sync import ClockSync
 from src.utils.json_guard import f, rows_as_float
@@ -67,17 +67,13 @@ CONFIG = {
     # UDP 监听地址与端口（iPhone/发包端把目标指向本机IP:PORT）
     "HOST": "0.0.0.0",
     "PORT": 9001,
-
     # 会话ID 与 LSL 名称后缀
     "SESSION": time.strftime("S%Y%m%d-%H%M%S"),
     "NAME_SUFFIX": "",   # 稳定后可改成 ""
-
     # 旁路日志目录（逐条 UDP 入站都写一行 .jsonl）
     # "LOGDIR": str((Path(__file__).resolve().parent) / "logs"),
-
     # 控制台摘要间隔（秒）
     "SUMMARY_EVERY": 5,
-
     # UDP 接收缓冲（避免高吞吐丢包）
     "SO_RCVBUF": 4 * 1024 * 1024,
 
@@ -166,7 +162,7 @@ def main():
     # 准备日志 在 recorder_data 下创建本次会话的专属文件夹
     # Path(CONFIG["LOGDIR"]).mkdir(parents=True, exist_ok=True)
     session_id = CONFIG.get("SESSION", time.strftime("S%Y%m%d-%H%M%S"))
-    session_dir = RECORDER_DATA_DIR /  "logs" / session_id
+    session_dir = PROCESSED_DATA_DIR /  "logs" / session_id
     session_dir.mkdir(parents=True, exist_ok=True)
     print(f"[*] 本次会話數據與日誌將保存至: {session_dir}")
 
