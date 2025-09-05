@@ -17,22 +17,12 @@ from typing import Any, Dict, List, Optional, Tuple
 import sys
 import os
 from pathlib import Path
-
 # 获取当前工作目录
 project_root = os.getcwd()
-
 # 确保项目根目录已添加到 sys.path
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-
-# 从当前文件位置(utils)出发，向上走2层才能到达 PhysioBridge/ 根目录
-project_root = Path(__file__).resolve().parent
-if str(project_root) not in sys.path:
-    sys.path.insert(0, str(project_root))
-
-# 从我们统一的路径管理器中导入所有需要的数据路径
-from src.utils.paths import RECORDER_DATA_DIR, PROCESSED_DATA_DIR
-
+from paths import RECORDER_DATA_DIR
 # === 交互：无参数时弹文件/目录选择框 ===
 try:
     from tkinter import Tk, filedialog
@@ -367,18 +357,13 @@ def main():
         xdf_path = pick_file_dialog()
         if xdf_path is None:
             try:
-                raw = input("请输入 XDF 文件路径：").strip().strip('"').strip("'")
+                raw = input("请输入 Polar XDF 文件路径：").strip().strip('"').strip("'")
                 xdf_path = Path(raw) if raw else None
             except EOFError:
                 xdf_path = None
     if xdf_path is None or not xdf_path.exists():
         print("[ERROR] 未提供有效 .xdf"); return
 
-    # out_dir = pick_dir_dialog("选择 CSV 输出目录（取消则用默认）") \
-    #           or (xdf_path.parent / f"csv_{xdf_path.stem}")
-    # ensure_out(out_dir)
-    #project_root = Path(__file__).resolve().parent.parent
-    #out_root = project_root / "Data" / "main_lsl_data"
     out_root = RECORDER_DATA_DIR
     out_dir = out_root / xdf_path.stem
     ensure_out(out_dir)

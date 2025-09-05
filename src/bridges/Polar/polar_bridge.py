@@ -59,7 +59,7 @@ from src.utils.ping_pong import PingPong
 # ========== 同模块内部依赖 (使用相对路径) ==========
 # ".parser" 意为 "从当前文件夹(polar/)导入parser.py"
 # "as Translators" 保留了别名，我们就不需要修改文件下面调用它的地方
-from parser import handle as handle_polar
+from polar_parser import handle as handle_polar
 
 
 # ========== 配置 ==========

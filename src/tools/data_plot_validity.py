@@ -15,16 +15,15 @@ Polar 数据质量体检与可视化（Verity + H10）
 import os, sys, glob, csv, math, json, traceback
 from pathlib import Path
 # 获取当前工作目录
+# 获取当前工作目录
 project_root = os.getcwd()
+
 # 确保项目根目录已添加到 sys.path
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-# 从当前文件位置(utils)出发，向上走2层才能到达 PhysioBridge/ 根目录
-project_root = Path(__file__).resolve().parent
-if str(project_root) not in sys.path:
-    sys.path.insert(0, str(project_root))
-# 从我们统一的路径管理器中导入所有需要的数据路径
-from src.utils.paths import RECORDER_DATA_DIR, PROCESSED_DATA_DIR
+
+from paths import RECORDER_DATA_DIR
+# === 交互：无参数时弹文件/目录选择框 ===
 
 try:
     from tkinter import Tk, filedialog
@@ -141,47 +140,6 @@ def pick_dir_dialog(title: str) -> Optional[Path]:
     # 默认打开 recorder_data 目录，方便用户查找
     p = filedialog.askdirectory(title=title, initialdir=str(RECORDER_DATA_DIR))
     root.destroy(); return Path(p) if p else None
-
-# def locate_files(root: Path) -> Dict[str, Dict[str, Path]]:
-#     """
-#     [新] 扫描目录内所有CSV，并按数据类型和设备进行分类。
-#     返回一个嵌套字典，结构为:
-#     {
-#         "HR": {"h10": Path_to_hr_h10_csv, "verity": Path_to_hr_verity_csv},
-#         "RR": {"h10": Path_to_rr_h10_csv},
-#         ...
-#     }
-#     """
-#     # 定义关键字和类型的映射关系
-#     # 格式：(文件名中的关键字, 数据类型, 设备名)
-#     key_map = [
-#         ("_hr_h10", "HR", "h10"),
-#         ("_hr_verity", "HR", "verity"),
-#         ("_rr_h10", "RR", "h10"),
-#         ("_ppi_verity", "PPI", "verity"),
-#         ("_ppg_verity", "PPG", "verity"), 
-#         ("_acc_h10", "ACC", "h10"),
-#         ("_acc_verity", "ACC", "verity"),
-#         ("_ecg_h10", "ECG", "h10"),
-#         ("_markers", "MARKERS", "unknown"),
-#     ]
-    
-#     # 初始化一个空的嵌套字典
-#     found: Dict[str, Dict[str, Path]] = {
-#         "HR": {}, "RR": {}, "PPI": {}, "PPG": {}, "ACC": {}, "ECG": {}, "MARKERS": {}
-#     }
-
-#     # 遍历目录下的所有CSV文件
-#     for path in root.glob("*.csv"):
-#         fname = path.name.lower()
-#         # 检查文件名符合哪个关键字
-#         for key, kind, device in key_map:
-#             if key in fname:
-#                 # 存入字典: found['HR']['h10'] = Path(...)
-#                 found[kind][device] = path
-#                 break # 找到匹配就处理下一个文件
-    
-#     return found
 
 def locate_files(root: Path) -> Dict[str, Dict[str, Path]]:
     """
@@ -508,64 +466,6 @@ def plot_ecg(t: np.ndarray, X: np.ndarray, out_png: Path, fs_hint: float, device
 #                      第2步：用这个新 main 函数完整替换旧的
 # ==============================================================================
 def main():
-    # 明确指定保存位置
-    # 若提供参数则用参数，否则默认选择 Data/main_lsl_data 下最新的会话目录
-    # base = Path(__file__).resolve().parent.parent
-    # default_root = base / "Data" / "main_lsl_data"
-    # if len(sys.argv) > 1:
-    #     root = Path(sys.argv[1]).resolve()
-    # else:
-    #     if not default_root.exists():
-    #         print(f"[FATAL] 默认目录不存在: {default_root}")
-    #         return
-    #     # 找最近修改的目录
-    #     candidates = [p for p in default_root.iterdir() if p.is_dir()]
-    #     if not candidates:
-    #         print(f"[FATAL] {default_root} 下没有任何会话目录")
-    #         return
-    #     root = max(candidates, key=lambda p: p.stat().st_mtime)
-
-    # print(f"[INFO] 使用目录: {root}")
-
-    # if not root or not root.is_dir():
-    #     print(f"[FATAL] 目录无效或未选择: {root}"); return
-
-    # # 1. [修正] 使用新的 locate_files 函数找到所有文件路径
-    # files = locate_files(root)
-    # report = [f"[DIR] {root}"]
-    # found_str = ", ".join([f"{k}({', '.join(v.keys())})" if v else f"{k}(-)" for k, v in files.items()])
-    # report.append(f"[FOUND] {found_str}")
-
-    #  # 1) 定位输入和输出目录
-    # # 输入目录默认为 recorder_data，用户仍可通过命令行参数覆盖
-    # in_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else RECORDER_DATA_DIR
-    # # 输出目录固定为 processed_data
-    # out_dir = PROCESSED_DATA_DIR
-    # out_dir.mkdir(parents=True, exist_ok=True) # 确保输出目录存在
-
-    # print(f"[*] 输入数据目录: {in_dir}")
-    # print(f"[*] 输出报告目录: {out_dir}")
-
-    # # 2. [修正] 建立一个与 files 结构相同的新字典 `data`，用于存放读取后的数据
-    # files = locate_files(RECORDER_DATA_DIR)
-    # report = [f"[DIR] {RECORDER_DATA_DIR}"]
-    # found_str = ", ".join([f"{k}({', '.join(v.keys())})" if v else f"{k}(-)" for k, v in files.items()])
-    # report.append(f"[FOUND] {found_str}")
-    # data: Dict[str, Dict[str, Any]] = {}
-    # for kind, devices in files.items():
-    #     if devices:
-    #         data[kind] = {}
-    #         for device, path in devices.items():
-    #             # 读取CSV并存储结果元组 (t, X, headers)
-    #             data[kind][device] = read_csv(path)
-    
-    # # 3. [修正] 后续所有分析都从新的、结构正确的 `data` 字典中读取数据
-    # grades, marks = [], None
-    # if "unknown" in data.get("MARKERS", {}):
-    #     t_mk, X_mk, _ = data["MARKERS"]["unknown"]
-    #     marks = (t_mk, [str(v[0]) for v in X_mk])
-
-
     # 1) 首先，尝试在默认的 RECORDER_DATA_DIR 目录中自动搜索
     in_dir = RECORDER_DATA_DIR
     print(f"[*] 正在默认目录中递归搜索CSV文件: {in_dir}")
