@@ -23,12 +23,8 @@ project_root = os.getcwd()
 # 确保项目根目录已添加到 sys.path
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-# 从当前文件位置(utils)出发，向上走2层才能到达 PhysioBridge/ 根目录
-project_root = Path(__file__).resolve().parent
-if str(project_root) not in sys.path:
-    sys.path.insert(0, str(project_root))
 # 从我们统一的路径管理器中导入所有需要的数据路径
-from src.utils.paths import RECORDER_DATA_DIR
+from paths import RECORDER_DATA_DIR
 
 try:
     from tkinter import Tk, filedialog

@@ -13,6 +13,8 @@ Polar 数据质量体检与可视化（Verity + H10）
 """
 
 import os, sys, glob, csv, math, json, traceback
+import re
+from collections import Counter
 from pathlib import Path
 # 获取当前工作目录
 # 获取当前工作目录
@@ -22,7 +24,7 @@ project_root = os.getcwd()
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from paths import RECORDER_DATA_DIR
+from paths import RECORDER_DATA_DIR, PROCESSED_DATA_DIR
 # === 交互：无参数时弹文件/目录选择框 ===
 
 try:
@@ -34,6 +36,7 @@ from typing import Dict, Any, List, Tuple, Optional
 
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.preprocessing import minmax_scale
 
 
 # ───────────────────────────────────────────────────────────────
@@ -75,6 +78,19 @@ CONFIG = {
     "acc_motion_win_sec": 1.0,
     # 选择目录弹框（仅在未提供参数时）
     "use_tk": True,
+
+    "completeness": {
+        "ECG": {"perfect": 0.99, "good": 0.95},
+        "ACC": {"perfect": 0.99, "good": 0.95},
+        "PPG": {"perfect": 0.99, "good": 0.95},
+        "PPI": {"perfect": 0.90, "good": 0.80},
+    },
+    "nominal_fs": {
+        "ECG": 130.0,
+        "ACC_h10": 200.0,
+        "ACC_verity": 52.0,
+        "PPG": 130.0,
+    }
 }
 
 # ───────────────────────────────────────────────────────────────
@@ -146,28 +162,33 @@ def locate_files(root: Path) -> Dict[str, Dict[str, Path]]:
     [新] 扫描目录内所有CSV（包括子目录），并按数据类型和设备进行分类。
     返回一个嵌套字典...
     """
-    files = {k: {} for k in ["HR", "RR", "PPI", "ECG", "ACC", "PPG", "MARKERS"]}
-    
-    # 使用 rglob('*.csv') 来递归搜索所有子文件夹中的CSV文件
-    for p in root.rglob('*.csv'):
-        fname = p.name.lower()
-        kind = None  # <-- 【修正点 1】在循环开始时，重置 kind 变量
+    files = {k: {} for k in ["HR", "RR", "PPI", "ECG", "ACC", "PPG", "MARKERS", "RESP"]}
 
-        # --- 从文件名推断数据类型 ---
+    for p in root.rglob('*.csv'):
+        fname_raw = p.name  # 保留原始文件名用于提取 run
+        fname = fname_raw.lower()
+
+        kind = None
         if "_hr_" in fname: kind = "HR"
         elif "_rr_" in fname: kind = "RR"
         elif "_ppi_" in fname: kind = "PPI"
         elif "_ecg_" in fname: kind = "ECG"
         elif "_acc_" in fname: kind = "ACC"
         elif "_ppg_" in fname: kind = "PPG"
-        elif "_markers_" in fname: kind = "MARKERS"
+        elif "_markers" in fname: kind = "MARKERS"
+        elif "_resp" in fname or "_respiration_" in fname: kind = "RESP"
 
-        # --- 如果成功识别了类型，才继续处理 ---
-        if kind: # <-- 【修正点 2】只有在 kind 被成功赋值后，才执行下面的代码
-            # 推断设备名
-            device = "h10" if "h10" in fname else "verity" if "verity" in fname else "unknown"
-            files[kind][device] = p
-            
+        if not kind:
+            continue
+
+        # 设备识别：用小写匹配，并统一设备键为小写
+        dev = "h10" if "h10" in fname else ("verity" if "verity" in fname else ("hkh" if "hkh" in fname else "unknown"))
+
+        # 同一类型可能有多个run，先把所有候选塞进列表，后续再过滤
+        files.setdefault(kind, {})
+        files[kind].setdefault(dev, [])
+        files[kind][dev].append(p)
+
     return files
 
 def read_csv(path: Path) -> Tuple[np.ndarray, np.ndarray, List[str]]:
@@ -188,6 +209,35 @@ def read_csv(path: Path) -> Tuple[np.ndarray, np.ndarray, List[str]]:
     X = np.array(rows, dtype=float) if rows else np.zeros((0, max(0, len(headers)-1)))
     return t, X, headers
 
+def extract_run_id(fname: str) -> str:
+    # 兼容 BIDS 风格：sub-*_ses-*_task-*_run-*
+    m = re.search(r'(sub-[^_]+_ses-[^_]+_task-[^_]+_run-[^_]+)', fname)
+    return m.group(1) if m else ""
+
+def choose_dominant_run_id(files_dict) -> str:
+    # 在所有候选文件里，统计出现最多的 run id，作为“主 run”
+    rids = []
+    for kind, devs in files_dict.items():
+        for dev, paths in devs.items():
+            for p in paths:
+                rid = extract_run_id(p.name)
+                if rid: rids.append(rid)
+    return Counter(rids).most_common(1)[0][0] if rids else ""
+
+def filter_files_to_run(files_dict, rid: str):
+    filtered = {}
+    for kind, devs in files_dict.items():
+        kept = {}
+        for dev, paths in devs.items():
+            # 只保留文件名里包含该 run id 的
+            hit = [p for p in paths if rid in p.name]
+            if hit:
+                # 若仍有多个同类文件，取修改时间最新的一份
+                hit.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+                kept[dev] = hit[0]
+        if kept:
+            filtered[kind] = kept
+    return filtered
 # ───────────────────────────────────────────────────────────────
 # 指标与分析 (此部分函数与原版基本一致，无需修改)
 # ───────────────────────────────────────────────────────────────
@@ -365,6 +415,98 @@ def plot_ecg(t: np.ndarray, X: np.ndarray, out_png: Path, fs_hint, device: str):
     plt.title(f"ECG ({device})  fs≈{fs:.2f} Hz")
     save_fig(out_png)
 
+def plot_multisignal_comparison(data: Dict[str, Dict[str, Any]], output_dir: Path):
+    print("\n[Multi-signal Plot] 正在生成多信号生理对比图...")
+
+    # 约定：设备键一律小写；kind 使用上面 locate_files 的键
+    signal_sources = {
+        #'ECG':        ('ECG', 'h10',     0),
+        'RR':         ('RR',  'h10',     0),
+        'HR':         ('HR',  'h10',     0),
+        'Respiration':('RESP','hkh',     0),
+        # 如需 PPI 一并比：('PPI','verity',0)
+    }
+
+    loaded = {}
+    for name, (kind, dev, col) in signal_sources.items():
+        txy = data.get(kind, {}).get(dev)
+        if not txy: 
+            print(f"  - 缺少 {name} ({kind}/{dev})，跳过")
+            continue
+        t, X, _ = txy
+        if t.size < 2: 
+            print(f"  - {name} 数据点过少，跳过")
+            continue
+        xcol = X[:, col] if X.ndim > 1 else X
+        loaded[name] = {'t': t.astype(float), 'x': np.asarray(xcol, dtype=float)}
+
+    if not loaded:
+        print("  - 没有可绘制的信号")
+        return
+
+    # 计算每条流的时间范围，并裁剪到公共交集，避免被异常文件拉长到“上万秒”
+    starts = {k: np.nanmin(v['t']) for k, v in loaded.items()}
+    ends   = {k: np.nanmax(v['t']) for k, v in loaded.items()}
+    common_start = max(starts.values())
+    common_end   = min(ends.values())
+    if common_end <= common_start:
+        print(f"  - 各信号无时间交集：starts={starts}, ends={ends}。仅做对齐零点的全量绘制。")
+        time_ref = min(starts.values())
+    else:
+        time_ref = common_start  # 以交集起点作为零点，图面才有可比性
+
+    plt.style.use('seaborn-v0_8-whitegrid')
+    fig, ax = plt.subplots(figsize=(16, 8))
+    cmap = plt.cm.get_cmap('tab10', len(loaded))
+
+    for i, (name, s) in enumerate(sorted(loaded.items())):
+        if common_end > common_start:
+            mask = (s['t'] >= common_start) & (s['t'] <= common_end)
+            tt = s['t'][mask]
+            xx = s['x'][mask]
+        else:
+            tt, xx = s['t'], s['x']
+
+        # 归一化前先兜底：常量向量直接放零线
+        if np.nanmax(xx) > np.nanmin(xx):
+            xn = (xx - np.nanmin(xx)) / (np.nanmax(xx) - np.nanmin(xx))
+        else:
+            xn = np.zeros_like(xx)
+
+        ax.plot(tt - time_ref, xn, label=name, linewidth=1.3, alpha=0.95, color=cmap(i))
+
+    # 标记事件：不揪设备名，拿到第一份就画
+    mk = data.get('MARKERS', {})
+    if mk:
+        dev0 = next(iter(mk.keys()))
+        t_mk, X_mk, _ = mk[dev0]
+        if t_mk.size:
+            for i in range(len(t_mk)):
+                ax.axvline(t_mk[i] - time_ref, linestyle='--', linewidth=1.0)
+                try:
+                    label = str(X_mk[i][0])
+                except Exception:
+                    label = ""
+                if label:
+                    ax.text(t_mk[i] - time_ref + 0.3, 0.95, label, rotation=90, va='top', fontsize=9)
+
+    title = "Normalized Multisignal Comparison"
+    if common_end > common_start:
+        title += f"  [overlap: {common_end - common_start:.1f}s]"
+    ax.set_title(title)
+    ax.set_xlabel("time (s)")
+    ax.set_ylabel("normalized amplitude")
+    ax.legend(loc='upper left', bbox_to_anchor=(1.02,1.0))
+    ax.set_ylim(-0.05, 1.05)
+    ax.grid(True, linestyle='--', linewidth=0.5)
+    plt.tight_layout(rect=[0,0,0.85,1])
+
+    out = output_dir / "physiological_signal_comparison.png"
+    plt.savefig(out, dpi=150, bbox_inches='tight')
+    plt.close(fig)
+    print(f"  -> 对比图已保存至: {out}")
+
+
 def plot_hr_overlay(t_hr, hr_bpm, t_evt, ms, out_png, label_evt, device_hr, device_evt):
     if t_hr.size==0 or hr_bpm.size==0 or t_evt.size==0 or ms.size==0: return
     
@@ -468,8 +610,17 @@ def plot_ecg(t: np.ndarray, X: np.ndarray, out_png: Path, fs_hint: float, device
 def main():
     # 1) 首先，尝试在默认的 RECORDER_DATA_DIR 目录中自动搜索
     in_dir = RECORDER_DATA_DIR
-    print(f"[*] 正在默认目录中递归搜索CSV文件: {in_dir}")
+    print(f"[*] 正在默认目录{ in_dir }中递归搜索CSV文件: {in_dir}")
     files = locate_files(in_dir)
+
+    # 运行对齐
+    rid = choose_dominant_run_id(files)
+    if not rid:
+        print("[!] 未识别到 run id；请确认文件名包含 sub-*/ses-*/task-*/run-*")
+        return
+    print(f"[*] 选定主 run: {rid}")
+    files = filter_files_to_run(files, rid)
+
 
     # 2) 检查是否找到了任何文件。如果一个都没找到，则弹框让用户手动选择
     # any(devices for devices in files.values()) 会检查是否所有文件类型都为空
@@ -506,6 +657,19 @@ def main():
             data[kind] = {}
             for device, path in devices.items():
                 data[kind][device] = read_csv(path)
+
+    
+    # —— 时间基准体检 —— 
+    def window(t): 
+        return (float(t.min()), float(t.max())) if t.size else (float('nan'), float('nan'))
+    time_report = ["[TIME WINDOWS]"]
+    for kind in ["RR","ECG","RESP","MARKERS","HR","PPG","ACC"]:
+        for dev, triple in data.get(kind, {}).items():
+            t, X, _ = triple
+            s,e = window(t)
+            time_report.append(f"  - {kind}/{dev}: start={s:.3f}  end={e:.3f}  span={e-s:.3f}s")
+    (PROCESSED_DATA_DIR / "qa_report_time.txt").write_text("\n".join(time_report), encoding="utf-8")
+    print("\n".join(time_report))
     
     # 3. [修正] 后续所有分析都从新的、结构正确的 `data` 字典中读取数据
     grades, marks = [], None
@@ -647,6 +811,11 @@ def main():
 
         # --- 绘制ECG波形图 ---
         plot_ecg(t, X, PROCESSED_DATA_DIR / f"ecg_{dev}.png", fs, dev)
+
+    # --- [在这里添加新行] 生成多信号对比图 ---
+    # 将已经加载和处理好的 data 字典传递给新的绘图函数
+    plot_multisignal_comparison(data, PROCESSED_DATA_DIR)
+
 
     # ... 您脚本中剩余的部分可以继续使用，因为它们通常是独立的或依赖于我们已经修正的逻辑 ...
     # 比如最后的总体评级

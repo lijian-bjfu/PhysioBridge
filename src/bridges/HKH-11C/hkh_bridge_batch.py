@@ -88,7 +88,7 @@ if hasattr(signal, "SIGBREAK"):
 
 # ----------------------------- 4) 输出目录与文件 ------------------------------
 ts_str   = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-out_dir  = Path(RECORDER_DATA_DIR) / SESSION
+out_dir  = Path(RECORDER_DATA_DIR) / "HKH" /SESSION
 out_dir.mkdir(parents=True, exist_ok=True)
 csv_path = out_dir / f"respiration_preview_{ts_str}.csv"
 csv_path.parent.mkdir(parents=True, exist_ok=True)

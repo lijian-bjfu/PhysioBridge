@@ -1,0 +1,6 @@
+[TIME WINDOWS]
+  - RR/h10: start=177056.037  end=177342.357  span=286.320s
+  - ECG/h10: start=177055.816  end=177341.842  span=286.026s
+  - RESP/hkh: start=177055.830  end=177342.331  span=286.501s
+  - MARKERS/unknown: start=177063.441  end=177328.212  span=264.770s
+  - HR/h10: start=177055.997  end=177342.016  span=286.020s

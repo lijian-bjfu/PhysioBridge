@@ -1,0 +1,2 @@
+{"time_lsl": 177344.45526890003, "label": "stop", "stream": "PB_MARKERS"}
+{"time_lsl": 177344.45526835, "label": "{\"note\":\"user_tapped_stop\",\"packet_id\":6,\"label\":\"stop\",\"type\":\"marker\",\"t_device\":1757164146.9743562}", "stream": "PB_UDP"}
