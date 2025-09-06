@@ -11,165 +11,177 @@ from pylsl import StreamInfo, StreamOutlet
 import os
 import sys
 from pathlib import Path
-ROOT = Path(__file__).resolve().parents[3]  # Polar→bridge→src→(root)
+
+# 让脚本无视工作目录也能 import 到项目根的 paths.py
+ROOT = Path(__file__).resolve().parents[3]  # HKH-11C → bridge → src → (root)
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-# 从我们统一的路径管理器中导入所有需要的数据路径
+
 from paths import RECORDER_DATA_DIR
 
-# 全局停止标志与信号处理
+# ----------------------------- 全局停止标志与信号 -----------------------------
 STOP_FLAG = False
 def _sig_handler(signum, frame):
     global STOP_FLAG
     STOP_FLAG = True
+    print(f"[HKH] 收到信号 {signum}，已置位 STOP_FLAG", flush=True)
 
-# =============================================================================
-# 1. LSL和文件参数设置
-# =============================================================================
-# LSL流信息
-info = StreamInfo(name='HB_Respiration_HKH', type='Respiration', channel_count=1,
-                  nominal_srate=50,  # 假设呼吸带的采样率是50Hz
-                  channel_format='int16',
-                  source_id='HKH_Device')
+# ----------------------------- 1) LSL 流定义 ---------------------------------
+info = StreamInfo(
+    name="HB_Respiration_HKH",
+    type="Respiration",
+    channel_count=1,
+    nominal_srate=50,             # 设备名义采样率 50Hz
+    channel_format="int16",
+    source_id="HKH_Device",
+)
 channels = info.desc().append_child("channels")
 ch = channels.append_child("channel")
 ch.append_child_value("label", "BreathingWave")
-ch.append_child_value("unit", "arbitrary_units")  # 可根据需求调整单位
-# 创建LSL出口
+ch.append_child_value("unit", "arbitrary_units")
 outlet = StreamOutlet(info)
 
-# =============================================================================
-# 2. 串口和协议参数设置
-# =============================================================================
-# 从 COM3, COM5 找到端口
+# ----------------------------- 2) 串口与协议 ---------------------------------
 BAUD_RATE = 115200
-CANDIDATE_PORTS = ['COM5', 'COM3']
-COM_PORT = None  # 设备实际占用的COM端口号
+CANDIDATE_PORTS = ["COM5", "COM3"]  # 先尝试 COM5，再尝试 COM3
+COM_PORT = None
+
+# 只验证是否能打开，立刻关闭，避免占用句柄
 for p in CANDIDATE_PORTS:
     try:
-        ser = serial.Serial(p, BAUD_RATE, timeout=1)
+        _probe = serial.Serial(p, BAUD_RATE, timeout=1)
+        _probe.close()
         COM_PORT = p
         break
     except Exception:
         continue
+
 if COM_PORT is None:
-    print("错误：未能连接 COM3/COM5。请打开“设备管理器→端口（COM & LPT）”，"
-          "查找呼吸带的端口号（HKH 端口为 Silicon Labs CP210x USB to UART Bridge），"
-          "然后在代码里临时把 COM_PORT 改为实际端口后重试。")
+    print(
+        "错误：未能连接 COM3/COM5。\n"
+        "请打开“设备管理器→端口（COM & LPT）”，找到呼吸带端口（Silicon Labs CP210x USB to UART Bridge），\n"
+        "然后把 CANDIDATE_PORTS 中的端口顺序改到正确端口或直接把 COM_PORT 设为实际端口。",
+        flush=True,
+    )
     raise SystemExit(3)
-# 如果上面成功打开了 ser，这里复用；如果需要统一打开逻辑，也可以先关闭再按原来流程重开
 
+DEVICE_ID = 0xCC
+CMD_START = b"\xFF\xCC\x03\xA3\xA0"
+CMD_STOP  = b"\xFF\xCC\x03\xA4\xA1"
 
-DEVICE_ID = 0xCC  # 呼吸带设备的ID
-CMD_START = b'\xFF\xCC\x03\xA3\xA0'  # 启动命令
-CMD_STOP = b'\xFF\xCC\x03\xA4\xA1'  # 停止命令
-
-ser = None
-
-# =============================================================================
-# 3. 主程序
-# =============================================================================
-
-# 解析 --session
+# ----------------------------- 3) 解析参数 -----------------------------------
 ap = argparse.ArgumentParser(add_help=False)
 ap.add_argument("--session")
-# 由hub控制打印
 ap.add_argument("--under-hub", action="store_true")
-# 由hub控制打印间隔
 ap.add_argument("--hb-interval", type=float, default=2.0)
 args, _ = ap.parse_known_args()
 
-SESSION = args.session or time.strftime("S%Y%m%d-%H%M%S")
+SESSION   = args.session or time.strftime("S%Y%m%d-%H%M%S")
 UNDER_HUB = args.under_hub
-HB_EVERY = max(0.5, args.hb_interval)
+HB_EVERY  = max(0.5, args.hb_interval)
 
-# 注册信号
-signal.signal(signal.SIGINT, _sig_handler)
+# 注册可软停信号（Win: SIGBREAK；POSIX: SIGINT/SIGTERM）
+signal.signal(signal.SIGINT,  _sig_handler)
 signal.signal(signal.SIGTERM, _sig_handler)
+if hasattr(signal, "SIGBREAK"):
+    signal.signal(signal.SIGBREAK, _sig_handler)
 
-# CSV文件名将包含时间戳
-timestamp_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-out_dir = Path(RECORDER_DATA_DIR) / SESSION
+# ----------------------------- 4) 输出目录与文件 ------------------------------
+ts_str   = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+out_dir  = Path(RECORDER_DATA_DIR) / SESSION
 out_dir.mkdir(parents=True, exist_ok=True)
-csv_filename = str(out_dir / f"respiration_preview_{timestamp_str}.csv")
+csv_path = out_dir / f"respiration_preview_{ts_str}.csv"
+csv_path.parent.mkdir(parents=True, exist_ok=True)
 
-# 自动创建保存 CSV 文件的目录
-csv_directory = os.path.dirname(csv_filename)  # 获取目录路径
-if not os.path.exists(csv_directory):
-    os.makedirs(csv_directory)  # 如果目录不存在，创建目录
-
-
+# ----------------------------- 5) 主流程 -------------------------------------
+ser = None
 try:
-    # --- 交互与准备 ---
-    print("--- 呼吸信号LSL采集脚本 ---")
-    print(f"LSL Stream Name: {info.name()}")
-    print(f"设备端口: {COM_PORT}")
-    print("[READY] hkh")
+    # 交互提示
+    print("--- 呼吸信号LSL采集脚本 ---", flush=True)
+    print(f"LSL Stream Name: {info.name()}", flush=True)
+    print(f"设备端口: {COM_PORT}", flush=True)
+    print("[READY] hkh", flush=True)
     if not UNDER_HUB:
-        print("提示：在 Lab Recorder 勾选 HB_Respiration_HKH 流；按 ESC/Ctrl-C 可停止（从总线脚本更方便）。")
+        print("提示：在 Lab Recorder 勾选 HB_Respiration_HKH 流；按 ESC/Ctrl-C 可停止。", flush=True)
+    print(f"数据将保存至: {csv_path}", flush=True)
+    print("-----------------------------------", flush=True)
 
-    print(f"数据将保存至: {csv_filename}")
-    print("-----------------------------------")
-
-    # --- 打开串口和文件 ---
+    # 打开串口与 CSV
     ser = serial.Serial(COM_PORT, BAUD_RATE, timeout=1)
-    print(f"成功连接到 {COM_PORT}。")
-    
-    with open(csv_filename, 'w', newline='') as csvfile:
+    print(f"成功连接到 {COM_PORT}。", flush=True)
+
+    with open(csv_path, "w", newline="") as csvfile:
         csv_writer = csv.writer(csvfile)
-        csv_writer.writerow(['LSL_Timestamp', 'BreathingValue'])  # 写入表头
+        csv_writer.writerow(["LSL_Timestamp", "BreathingValue"])
 
-        # --- 发送启动命令 ---
+        # 发送启动命令
         ser.write(CMD_START)
-        # print("已发送启动命令... 开始记录数据。")
-        print("按【ESC】键可随时停止录制。")
-        print("-----------------------------------")
-        
-        start_time = pylsl.local_clock()
-        last_print_time = start_time
+        if not UNDER_HUB:
+            print("按【ESC】键可随时停止录制。", flush=True)
+        print("-----------------------------------", flush=True)
 
-        # --- 循环读取和处理数据 ---
+        # 心跳定时（独立于是否解析到新帧）
+        start_time   = pylsl.local_clock()
+        last_hb_time = start_time
+        last_value   = 0
+
+        # 读取循环
         while not STOP_FLAG:
-            if ser.in_waiting > 0 and ser.read(1) == b'\xFF':
-                if ser.in_waiting > 0 and ser.read(1) == bytes([DEVICE_ID]):
-                    packet_data = ser.read(5)
-                    if len(packet_data) == 5:
-                        hxh, hxl = packet_data[3], packet_data[4]
-                        breathing_value = struct.unpack('>h', bytes([hxh, hxl]))[0]
-                        
-                        # 获取高精度时间戳并推送到LSL
-                        lsl_timestamp = pylsl.local_clock()
-                        outlet.push_sample([breathing_value], lsl_timestamp)
-                        
-                        # 写入CSV文件
-                        csv_writer.writerow([lsl_timestamp, breathing_value])
-                        
-                        # --- 实时反馈 ---
-                        current_time = lsl_timestamp
-                        if current_time - last_print_time > HB_EVERY:
-                            elapsed_time = current_time - start_time
-                            # 给 hub 的心跳 JSON
-                            hb = {"hb":"hkh", "elapsed_s": elapsed_time, "recent_samples":  int(HB_EVERY*50),  # 50Hz 估算
-                                "last_value": int(breathing_value)}
-                            print(json.dumps(hb, ensure_ascii=False))
-                            # 仅非 under-hub 时，再打印人话
-                            if not UNDER_HUB:
-                                print(f"[HKH] 正在录制：累计 {elapsed_time:.1f}s，当前呼吸值 {breathing_value}")
-                            last_print_time = current_time
+            parsed = False
 
-        
-        print("\n检测到【ESC】，正在停止...")
+            # 尝试解析一帧：FF | DEVICE_ID | ... 5 字节 payload
+            if ser.in_waiting > 0 and ser.read(1) == b"\xFF":
+                if ser.in_waiting > 0 and ser.read(1) == bytes([DEVICE_ID]):
+                    packet = ser.read(5)
+                    if len(packet) == 5:
+                        hxh, hxl = packet[3], packet[4]
+                        breathing_value = struct.unpack(">h", bytes([hxh, hxl]))[0]
+
+                        # LSL 推送 + CSV 记录
+                        t = pylsl.local_clock()
+                        outlet.push_sample([breathing_value], t)
+                        csv_writer.writerow([t, breathing_value])
+
+                        # 更新“最近值”
+                        last_value = int(breathing_value)
+                        parsed = True
+
+            # 若没有解析到新包，轻微让出 CPU，避免无谓空转
+            if not parsed:
+                time.sleep(0.002)
+
+            # 到点就发心跳 JSON（hub 会吃掉并汇总成人话）
+            now = pylsl.local_clock()
+            if now - last_hb_time >= HB_EVERY:
+                elapsed = now - start_time
+                hb = {
+                    "hb": "hkh",
+                    "elapsed_s": elapsed,
+                    "recent_samples": int(HB_EVERY * 50),  # 50Hz 估算
+                    "last_value": last_value,
+                }
+                print(json.dumps(hb, ensure_ascii=False), flush=True)
+                if not UNDER_HUB:
+                    print(f"[HKH] 正在录制：累计 {elapsed:.1f}s，当前呼吸值 {last_value}", flush=True)
+                last_hb_time = now
+
+    # 跳出循环（STOP_FLAG 置位）
+    print("\n检测到【ESC/信号】，正在停止...", flush=True)
 
 except serial.SerialException as e:
-    print(f"\n错误: 无法打开端口 {COM_PORT}. 请检查设备连接或端口号。")
-    print(e)
+    print(f"\n错误: 无法打开端口 {COM_PORT}。请检查设备连接或端口号。\n{e}", flush=True)
 except Exception as e:
-    print(f"\n发生未知错误: {e}")
+    print(f"\n发生未知错误: {e}", flush=True)
 finally:
-    if ser and ser.is_open:
-        ser.write(CMD_STOP)
-        print("已发送停止命令。")
-        ser.close()
-        print(f"端口 {COM_PORT} 已关闭。数据已保存至 {csv_filename}。")
-    else:
-        print("程序结束。")
+    try:
+        if ser and ser.is_open:
+            # 向设备发送 STOP 命令，确保硬件灭灯
+            try:
+                ser.write(CMD_STOP)
+                print("已发送停止命令。", flush=True)
+            except Exception:
+                pass
+            ser.close()
+            print(f"端口 {COM_PORT} 已关闭。数据已保存至 {csv_path}。", flush=True)
+    except Exception:
+        pass

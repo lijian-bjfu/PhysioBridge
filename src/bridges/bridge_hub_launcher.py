@@ -14,17 +14,50 @@ import json
 from pathlib import Path
 from typing import List
 import argparse
+import locale  # NEW
 
-# 统一从 paths 里拿目录（你已规划好的）
-project_root = os.getcwd()
-# 确保项目根目录已添加到 sys.path
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
+# 基于 __file__ 定位项目根：.../src/bridge/bridge_hub_launcher.py → 上两级就是 PhysioBridge/
+HERE = Path(__file__).resolve()
+PROJECT_ROOT = HERE.parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from paths import RECORDER_DATA_DIR, MIRROR_DATA_DIR
 
 
-
 # ---------- 小工具 ----------
+# 过滤 liblsl 的底层嘈杂日志（C++ 初始化吐的那些）
+NOISY_MARKERS = ("netinterfaces.cpp", "api_config.cpp", "common.cpp", "udp_server.cpp")
+
+# upd 丢包信息解码
+def format_udp_loss(loss_obj) -> list[str]:
+    """把 polar 心跳里的 udp_loss dict 格式化为多行中文人话。"""
+    lines = []
+    if not isinstance(loss_obj, dict):
+        return lines
+    for key, v in loss_obj.items():  # key 例：H10|rr / H10|hr ...
+        pk = v.get("pkts", {})
+        ia = v.get("ia_10s", {})  # 10 秒窗口即可
+        recv = pk.get("recv", 0)
+        miss = pk.get("miss", 0)
+        ooo  = pk.get("ooo", 0)
+        rate = ia.get("rate_hz", 0.0) or 0.0
+        jit  = ia.get("jitter_ms", 0.0) or 0.0
+        lr   = pk.get("loss_rate", 0.0) or 0.0
+        lines.append(
+            f"    {key}: 收 {recv} 丢 {miss} 乱序 {ooo} 丢率 {lr:.2%} 速率 {rate:.2f}Hz 抖动 {jit:.1f}ms"
+        )
+    return lines
+
+
+# 噪音过滤与更宽容的心跳识别
+def is_noisy_liblsl_line(s: str) -> bool:
+    s = s.strip()
+    if not s:
+        return False
+    # 只过滤 liblsl 初始化/网卡/多播绑定类的 INFO/WARN 行
+    return any(m in s for m in NOISY_MARKERS)
+
 def gen_session() -> str:
     ts = time.strftime("S%Y%m%d-%H%M%S")
     salt = hashlib.sha1(f"{ts}-{random.random()}".encode()).hexdigest()[:4]
@@ -59,7 +92,9 @@ class EscWatcher:
                 import msvcrt
                 while not self._stop.is_set():
                     if msvcrt.kbhit() and msvcrt.getch() == b"\x1b":
-                        os.kill(os.getpid(), signal.SIGINT)
+                        # os.kill(os.getpid(), signal.SIGINT)
+                        print("[hub] EscWatcher 捕获到 ESC，准备触发 SIGINT", flush=True)   # 诊断用
+                        signal.raise_signal(signal.SIGINT)
                         return
                     time.sleep(0.02)
             else:
@@ -73,7 +108,9 @@ class EscWatcher:
                         if r:
                             ch = os.read(fd, 1)
                             if ch == b"\x1b":
-                                os.kill(os.getpid(), signal.SIGINT)
+                                # os.kill(os.getpid(), signal.SIGINT)
+                                print("[hub] EscWatcher 捕获到 ESC，准备触发 SIGINT", flush=True)   # 诊断用
+                                signal.raise_signal(signal.SIGINT)
                                 return
                 finally:
                     termios.tcsetattr(fd, termios.TCSADRAIN, old)
@@ -82,6 +119,7 @@ class EscWatcher:
             pass
 
 class Child:
+    
     def __init__(self, name: str, cmd: List[str], cwd: Path):
         self.name = name
         self.cmd = cmd
@@ -92,18 +130,45 @@ class Child:
         self.ready = False
 
     def start(self):
-        self.proc = subprocess.Popen(
-            self.cmd,
+        env = os.environ.copy()
+        # 确保 PROJECT_ROOT 在 PYTHONPATH（你之前已加，无需改动就好）
+        # env["PYTHONPATH"] = ...
+
+        popen_kwargs = dict(
             cwd=str(self.cwd),
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             bufsize=1,
             universal_newlines=True,
-            encoding="utf-8",
-            errors="replace"
+            encoding=locale.getpreferredencoding(False),
+            errors="replace",
+            env=env,
         )
+        if os.name == "nt":
+            # Windows：建新进程组，便于发 CTRL_BREAK_EVENT
+            popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+        else:
+            # POSIX：建新会话（相当于新进程组）
+            popen_kwargs["preexec_fn"] = os.setsid
+
+        self.proc = subprocess.Popen(self.cmd, **popen_kwargs)
+
         self._reader = threading.Thread(target=self._pump, daemon=True)
         self._reader.start()
+
+    def soft_term(self):
+        """平台感知的“软停”：Windows 发送 CTRL_BREAK；POSIX 对进程组发 SIGTERM。"""
+        if not self.proc or self.proc.poll() is not None:
+            return
+        try:
+            if os.name == "nt":
+                self.proc.send_signal(signal.CTRL_BREAK_EVENT)
+            else:
+                # 给整个进程组发 SIGTERM
+                os.killpg(self.proc.pid, signal.SIGTERM)
+        except Exception as e:
+            print(f"[hub] 向 {self.name} 发送软停失败：{e}", flush=True)
+
 
     def _pump(self):
         assert self.proc and self.proc.stdout
@@ -141,6 +206,14 @@ class Child:
         return self.proc.returncode if self.proc else None
 
 def main():
+    # 全局停止标志
+    hub_stop = {"v": False}
+    def _hub_sigint(signum, frame):
+        print("[hub] 主进程收到 SIGINT", flush=True)
+        hub_stop["v"] = True
+    signal.signal(signal.SIGINT, _hub_sigint)
+
+
     # argparse：加入 --interval
     ap = argparse.ArgumentParser()
     ap.add_argument("--interval", type=float, default=2.0, help="状态打印间隔（秒）")
@@ -186,25 +259,36 @@ def main():
     last_flush = 0.0
     try:
         while True:
+            # 主循环 while True 内合适位置
+            if hub_stop["v"]:
+                raise KeyboardInterrupt  # 统一走到 except/ finally 停机路径
+
             # 实时转发子进程输出，加前缀
             for c in (polar, hkh, mirror):
-                for line in c.drain_lines():
-                    # 心跳 JSON 行：交给 hub 消化，不直接打印
-                    if line.startswith("{") and '"hb"' in line:
+                for raw in c.drain_lines():
+                    line = raw.rstrip("\r\n")
+                    # 1) 心跳识别：允许前导空白；解析 JSON 再判 hb 字段
+                    ls = line.lstrip()
+                    if ls.startswith("{"):
                         try:
-                            obj = json.loads(line)
-                            # 把 obj 存起来供汇总（比如放到一个 dict: statuses[c.name] = obj）
-                            statuses[c.name] = obj
+                            obj = json.loads(ls)
+                            if obj.get("hb") in {"polar","hkh","mirror"}:
+                                statuses[c.name] = obj   # 2) 吃掉心跳，供汇总
+                                continue
                         except Exception:
                             pass
+                    # 3) 过滤 liblsl 底噪
+                    if is_noisy_liblsl_line(line):
                         continue
-                    # 其他关键事件行（READY/错误/警告等）照常打印
-                    print(f"[{c.name}] {line}")
+                    # 其它关键事件照打
+                    print(f"[{c.name}] {line}", flush=True)
 
 
             # READY 检查
             if all(c.ready for c in (polar, hkh, mirror)):
-                print("[Suite] 全部就绪，进入录制阶段。")
+                # flush=True（避免被缓冲吞掉）
+                print("[Suite] 全部就绪，进入录制阶段。", flush=True)
+                print("[Suite] 请确认 Lab Recorder 已开始录制。", flush=True)
 
                 # 打印一次 Lab Recorder 温馨确认（只打印一次）
                 print("[Suite] 请确认 Lab Recorder 已开始录制。")
@@ -220,8 +304,9 @@ def main():
                 # Polar
                 if "Polar" in statuses:
                     s = statuses["Polar"]
-                    print(f"[hub] Polar：UDP包 {s.get('udp_pkts',0)} 丢 {s.get('udp_loss',0)} "
-                        f"handled {s.get('handled',0)} unknown {s.get('unknown',0)} 延迟均值 {s.get('lat_avg_ms',0)}ms")
+                    print(f"[hub] Polar：UDP包 {s.get('udp_pkts',0)} handled {s.get('handled',0)} unknown {s.get('unknown',0)} 延迟均值 {s.get('lat_avg_ms',0)}ms", flush=True)
+                    for ln in format_udp_loss(s.get("udp_loss")):
+                        print(f"[hub] {ln}", flush=True)
                 # HKH
                 if "HKH" in statuses:
                     s = statuses["HKH"]
@@ -243,31 +328,58 @@ def main():
 
             time.sleep(0.05)
     except KeyboardInterrupt:
-        print("\n[Suite] 收到停止请求，正在收尾...")
+        print("\n[Suite] 收到停止请求，正在收尾...", flush=True)
+  
     finally:
-        # 优雅终止
+        # A) 广播“软停”信号：Win=CTRL_BREAK，POSIX=SIGTERM(进程组)
+        print("[hub] 正在发送软停信号给子进程...", flush=True)
         for c in (polar, hkh, mirror):
-            c.term()
+            c.soft_term()  # 需要你已按前文添加 Child.soft_term()
+
+        # B) 等待最多 5 秒让子进程自己收尾（HKH 发 STOP、关串口等）
         deadline = time.time() + 5.0
         while time.time() < deadline:
             alive = [c for c in (polar, hkh, mirror) if c.proc and c.proc.poll() is None]
             if not alive:
                 break
             time.sleep(0.1)
-        # 强杀兜底
+
+        # C) 兜底强杀：还活着的才 kill（极少发生）
         for c in (polar, hkh, mirror):
-            c.kill()
+            if c.proc and c.proc.poll() is None:
+                print(f"[hub] {c.name} 未按时退出，执行强制结束", flush=True)
+                c.kill()
 
-        esc.stop()
+        # C.1) 汇报各子进程停止状态
+        for c in (polar, hkh, mirror):
+            if c.proc is None:
+                print(f"[hub] {c.name} 进程未启动", flush=True)
+                continue
+            rc = c.proc.poll()
+            if rc is None:
+                print(f"[hub] {c.name} 停止录制（强制结束）", flush=True)
+            elif rc == 0:
+                print(f"[hub] {c.name} 停止录制", flush=True)
+            else:
+                print(f"[hub] {c.name} 停止录制（退出码 {rc}）", flush=True)
 
-        # 最终提示（你刚要求的 4 条）
-        print("\n" + "=" * 78)
-        print("录制已结束：")
-        print("1) 您可以停止 Lab Recorder 的录制了，请到其“保存路径”查找主数据文件。")
-        print(f"2) 网络记录日志保存在：{Path(RECORDER_DATA_DIR) / 'logs' / session}")
-        print(f"3) 呼吸信号预览 CSV 在：{Path(RECORDER_DATA_DIR) / session}  下的  preview_*.csv")
-        print(f"4) 镜像备份文件在：     {Path(MIRROR_DATA_DIR) / session}")
-        print("=" * 78)
+        # D) 停止 ESC 监听，顺便吃掉子进程残留输出，避免把收尾提示顶掉
+        try:
+            esc.stop()
+        except Exception:
+            pass
+        time.sleep(0.1)
+        for c in (polar, hkh, mirror):
+            _ = c.drain_lines()  # 不再打印，只是清空队列
+
+        # E) 最终提示（全部 flush，确保可见）
+        print("\n" + "=" * 78, flush=True)
+        print("录制已结束：", flush=True)
+        print("1) 您可以停止 Lab Recorder 的录制了，请到其“保存路径”查找主数据文件。", flush=True)
+        print(f"2) 网络记录日志保存在：{Path(RECORDER_DATA_DIR) / 'logs' / session}", flush=True)
+        print(f"3) 呼吸信号预览 CSV 在：{Path(RECORDER_DATA_DIR) / session} 下的 preview_*.csv", flush=True)
+        print(f"4) 镜像备份文件在：     {Path(MIRROR_DATA_DIR) / session}", flush=True)
+        print("=" * 78, flush=True)
 
 
 if __name__ == "__main__":

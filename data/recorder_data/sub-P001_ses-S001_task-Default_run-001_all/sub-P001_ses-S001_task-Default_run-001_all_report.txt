@@ -4,7 +4,7 @@
 共生成 6 个 CSV 文件：
 
 文件: sub-P001_ses-S001_task-Default_run-001_all_ecg_h10.csv
-形状: 19053 行 × 2 列
+形状: 20951 行 × 2 列
 行含义: 每行是一条ECG记录（按 time_lsl 升序）
 列说明:
   - time_lsl: LSL 时间戳（秒，local_clock 单调时钟）
@@ -13,7 +13,7 @@
   · 单位微伏（uV）。H10 提供等采样 ECG（典型 130Hz）。
 
 文件: sub-P001_ses-S001_task-Default_run-001_all_acc_h10.csv
-形状: 7416 行 × 4 列
+形状: 8136 行 × 4 列
 行含义: 每行是一条ACC记录（按 time_lsl 升序）
 列说明:
   - time_lsl: LSL 时间戳（秒，local_clock 单调时钟）
@@ -24,7 +24,7 @@
   · 单位 mG（毫重力）。可用于活动水平估计与运动伪迹识别。
 
 文件: sub-P001_ses-S001_task-Default_run-001_all_hr_h10.csv
-形状: 147 行 × 2 列
+形状: 161 行 × 2 列
 行含义: 每行是一条HR记录（按 time_lsl 升序）
 列说明:
   - time_lsl: LSL 时间戳（秒，local_clock 单调时钟）
@@ -33,7 +33,7 @@
   · bpm 为设备侧瞬时心率。建议与 RR/PPI 推导的一致性作校验。
 
 文件: sub-P001_ses-S001_task-Default_run-001_all_rr_h10.csv
-形状: 184 行 × 3 列
+形状: 211 行 × 3 列
 行含义: 每行是一条RR记录（按 time_lsl 升序）
 列说明:
   - time_lsl: LSL 时间戳（秒，local_clock 单调时钟）
@@ -52,7 +52,7 @@
   · 实验阶段标签来自手机端事件；后续可在分析脚本中转为 trial 边界。
 
 文件: sub-P001_ses-S001_task-Default_run-001_all_Respiration_HKH.csv
-形状: 7621 行 × 2 列
+形状: 8303 行 × 2 列
 行含义: 每行是一条Respiration记录（按 time_lsl 升序）
 列说明:
   - time_lsl: LSL 时间戳（秒，local_clock 单调时钟）

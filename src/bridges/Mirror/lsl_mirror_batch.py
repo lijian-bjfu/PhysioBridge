@@ -288,9 +288,12 @@ class Mirror:
             STOP_FLAG["v"] = True
         signal.signal(signal.SIGINT, _sig_handler)
         signal.signal(signal.SIGTERM, _sig_handler)
+        if hasattr(signal, "SIGBREAK"):
+            signal.signal(signal.SIGBREAK, _sig_handler)   # Windows
 
-        print(f"[mirror] 输出目录: {self.session_dir}")
-        print("[mirror] 已启动：按 ESC 结束录制。")
+        print(f"[mirror] 输出目录: {self.session_dir}", flush=True)
+        print("[mirror] 已启动：按 ESC 结束录制。", flush=True)
+        print("[READY] mirror", flush=True)
         last_discover = 0.0
         with EscWatcher() as esc:
             try:
@@ -313,7 +316,7 @@ class Mirror:
                             hb = {"hb":"mirror", "streams": len(self.writers),
                                 "rows": sum(w.total_rows for w in self.writers.values()),
                                 "max_idle_s": round(max_idle,2)}
-                            print(json.dumps(hb, ensure_ascii=False))
+                            print(json.dumps(hb, ensure_ascii=False), flush=True)
                         except Exception:
                             pass
                         # 仅非 under-hub，再打印人话摘要
@@ -323,11 +326,11 @@ class Mirror:
 
 
                     if esc.pressed():
-                        print("[mirror] 检测到 ESC，准备停止录制镜像数据。")
+                        print("[mirror] 检测到 ESC，准备停止录制镜像数据。", flush=True)
                         break
                         
                     if STOP_FLAG["v"]:
-                        print("[mirror] 收到停止信号，准备停止录制镜像数据。")
+                        print("[mirror] 收到停止信号，准备停止录制镜像数据。", flush=True)
                         break
 
             except KeyboardInterrupt:
@@ -351,7 +354,7 @@ class Mirror:
                     )
                 except Exception:
                     pass
-                print(f"[mirror] 录制已停止。session={self.session}")
+                print(f"[mirror] 录制已停止。session={self.session}", flush=True)
 
 def main():
     ap = argparse.ArgumentParser()
@@ -365,7 +368,6 @@ def main():
     out_root.mkdir(parents=True, exist_ok=True)
     hb_interval = max(0.5, args.hb_interval)
 
-    m = Mirror(out_root=out_root)
     m = Mirror(out_root=out_root, under_hub=args.under_hub, hb_every=hb_interval)
     if args.session:
         m.session = args.session

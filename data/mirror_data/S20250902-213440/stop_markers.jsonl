@@ -1,4 +1,0 @@
-{"time_lsl": 4744.131581125, "label": "stop", "stream": "PB_MARKERS"}
-{"time_lsl": 4744.1315786455, "label": "{\"note\":\"user_tapped_stop\",\"t_device\":1756820100.2955661,\"label\":\"stop\",\"type\":\"marker\",\"packet_id\":6}", "stream": "PB_UDP"}
-{"time_lsl": 4844.878728165999, "label": "stop", "stream": "PB_MARKERS"}
-{"time_lsl": 4844.8787024995, "label": "{\"note\":\"user_tapped_stop\",\"type\":\"marker\",\"packet_id\":7,\"label\":\"stop\",\"t_device\":1756820201.0233951}", "stream": "PB_UDP"}

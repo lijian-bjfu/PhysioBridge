@@ -75,6 +75,7 @@ STOP_FLAG = False
 def _sig_handler(signum, frame):
     global STOP_FLAG
     STOP_FLAG = True
+    print(f"[polar] 收到信号 {signum}，准备停止...", flush=True)
 
 # 在 main() 开始时注册（
 
@@ -161,6 +162,9 @@ def main():
     # 信号处理与参数
     signal.signal(signal.SIGINT, _sig_handler)
     signal.signal(signal.SIGTERM, _sig_handler)
+    if hasattr(signal, "SIGBREAK"):  # Windows 才有
+        signal.signal(signal.SIGBREAK, _sig_handler)
+
 
     ap = argparse.ArgumentParser(add_help=False)
     ap.add_argument("--session")
@@ -169,11 +173,9 @@ def main():
     args, _ = ap.parse_known_args()
     if args.session:
         CONFIG["SESSION"] = args.session
-    if args.under_hub:
-        CONFIG["SUMMARY_EVERY"] = 10**9  # 等效禁用自播报
-    else:
-        CONFIG["SUMMARY_EVERY"] = max(0.5, args.hb_interval)
+
     UNDER_HUB = args.under_hub
+    CONFIG["SUMMARY_EVERY"] = max(0.5, args.hb_interval)
 
     # 准备日志 在 recorder_data 下创建本次会话的专属文件夹
     # Path(CONFIG["LOGDIR"]).mkdir(parents=True, exist_ok=True)
@@ -253,8 +255,11 @@ def main():
     print(f"[bridge_hub] listening UDP on {CONFIG['HOST']}:{CONFIG['PORT']}")
     print(f"[bridge_hub] LSL outlets ready: {name_data} (udp_text), {name_mark} (Markers)")
     print(f"[bridge_hub] log file: {log_path}")
-    _status_banner(host_ip, name_data, name_mark, log_path)
-    print("【提示】按 ESC 结束（焦点需在本终端窗口）")
+    if not UNDER_HUB:
+        _status_banner(host_ip, name_data, name_mark, log_path)
+        print("【提示】按 ESC 结束（焦点需在本终端窗口）")
+    else:
+        print("[READY] polar")
 
     try:
         with EscWatcher() as esc:
@@ -334,21 +339,26 @@ def main():
                 # 周期性摘要与温馨提示
                 now = time.time()
                 if now - t0 >= CONFIG["SUMMARY_EVERY"]:
-                    print(f"[SUMMARY] text={cnt_text} markers={cnt_mark} handled={cnt_handled} unknown={cnt_unknown} errors={cnt_errors}")
+                    
+                    hb = {
+                        "hb":"polar",
+                        "udp_pkts": cnt_text,
+                        "handled":  cnt_handled,
+                        "unknown":  cnt_unknown,
+                        "errors":   cnt_errors,
+                        "udp_loss": metrics.snapshot(),
+                        "lat_avg_ms": round(clock.avg_latency_ms(), 1) if hasattr(clock,"avg_latency_ms") else 0
+                    }
+                    print(json.dumps(hb, ensure_ascii=False), flush=True)
 
-                    hb = {"hb":"polar", "udp_pkts": cnt_text, "handled": cnt_handled,
-                    "unknown": cnt_unknown, "errors": cnt_errors,
-                    "udp_loss": metrics.snapshot(),  # 如果没有这个方法，可用 metrics.snapshot() 里算百分比
-                    "lat_avg_ms": round(clock.avg_latency_ms(), 1) if hasattr(clock,"avg_latency_ms") else 0}
-                    print(json.dumps(hb, ensure_ascii=False))
+                    if not UNDER_HUB:
+                        print(f"[SUMMARY] text={cnt_text} markers={cnt_mark} handled={cnt_handled} unknown={cnt_unknown} errors={cnt_errors}", flush=True)
+                        print("  手机-电脑时间同步 :", json.dumps(pp.snapshot(), ensure_ascii=False), flush=True)
+                        # 打印 UDP 丢包统计的简报
+                        print("  UDP:", metrics.format_brief(), flush=True)
 
-                    print("  手机-电脑时间同步 :", json.dumps(pp.snapshot(), ensure_ascii=False))
-
-                    if cnt_handled == 0:
-                        print("  提示：若数值流未出现，请确认手机端已开始发送；Lab Recorder 可先打开等待。")
-
-                    # 打印 UDP 丢包统计的简报
-                    print("  UDP:", metrics.format_brief())
+                        if cnt_handled == 0:
+                            print("  提示：若数值流未出现，请确认手机端已开始发送；Lab Recorder 可先打开等待。")
 
                     # 对已知设备单播发一轮 ping（间隔受 period_s 限制）
                     pp.maybe_send_pings()
