@@ -1,22 +1,19 @@
-import imp
 import time
-import os
-from paht import Path
 import serial
 import struct
 import datetime
-import csv
+import csv, json
 import signal
 import argparse
 import pylsl
 from pylsl import StreamInfo, StreamOutlet
 
+import os
 import sys
-# 获取当前工作目录
-project_root = os.getcwd()
-# 确保项目根目录已添加到 sys.path
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
+from pathlib import Path
+ROOT = Path(__file__).resolve().parents[3]  # Polar→bridge→src→(root)
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 # 从我们统一的路径管理器中导入所有需要的数据路径
 from paths import RECORDER_DATA_DIR
 
@@ -108,7 +105,8 @@ try:
     print(f"LSL Stream Name: {info.name()}")
     print(f"设备端口: {COM_PORT}")
     print("[READY] hkh")
-    print("提示：在 Lab Recorder 勾选 HB_Respiration_HKH 流；按 ESC/Ctrl-C 可停止（从总线脚本更方便）。")
+    if not UNDER_HUB:
+        print("提示：在 Lab Recorder 勾选 HB_Respiration_HKH 流；按 ESC/Ctrl-C 可停止（从总线脚本更方便）。")
 
     print(f"数据将保存至: {csv_filename}")
     print("-----------------------------------")
@@ -148,10 +146,17 @@ try:
                         
                         # --- 实时反馈 ---
                         current_time = lsl_timestamp
-                        if current_time - last_print_time > 2.0:
+                        if current_time - last_print_time > HB_EVERY:
                             elapsed_time = current_time - start_time
-                            print(f"[HKH] 正在录制：累计 {elapsed_time:.1f}s，当前呼吸值 {breathing_value}")
+                            # 给 hub 的心跳 JSON
+                            hb = {"hb":"hkh", "elapsed_s": elapsed_time, "recent_samples":  int(HB_EVERY*50),  # 50Hz 估算
+                                "last_value": int(breathing_value)}
+                            print(json.dumps(hb, ensure_ascii=False))
+                            # 仅非 under-hub 时，再打印人话
+                            if not UNDER_HUB:
+                                print(f"[HKH] 正在录制：累计 {elapsed_time:.1f}s，当前呼吸值 {breathing_value}")
                             last_print_time = current_time
+
         
         print("\n检测到【ESC】，正在停止...")
 

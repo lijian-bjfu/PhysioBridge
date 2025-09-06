@@ -243,7 +243,7 @@ def main():
 
             time.sleep(0.05)
     except KeyboardInterrupt:
-        print("\n[Suite] 收到停止请求，正在优雅收尾...")
+        print("\n[Suite] 收到停止请求，正在收尾...")
     finally:
         # 优雅终止
         for c in (polar, hkh, mirror):

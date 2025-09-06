@@ -8,8 +8,7 @@
 压缩与刷新参数设置为“稳重不吃 CPU”。
 """
 
-import sys, os, time, json, argparse, threading, select
-from pathlib import Path
+import time, json, argparse, threading, select
 from typing import Dict, Any, List
 import signal
 
@@ -21,12 +20,13 @@ import pyarrow.parquet as pq
 # ROOT = Path(__file__).resolve().parent
 # OUT_ROOT = ROOT / "Data" / "mirror_lsl_data"
 
-# 获取当前工作目录
-project_root = os.getcwd()
-# 确保项目根目录已添加到 sys.path
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-# 从我们统一的路径管理器中导入 mirror_data 的路径
+import os
+import sys
+from pathlib import Path
+ROOT = Path(__file__).resolve().parents[3]  # Polar→bridge→src→(root)
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+# 从我们统一的路径管理器中导入所有需要的数据路径
 from paths import MIRROR_DATA_DIR
 
 DISCOVER_EVERY = 5.0        # 每 5s 扫一次现有 LSL 流

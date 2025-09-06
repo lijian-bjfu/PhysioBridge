@@ -14,19 +14,14 @@ bridge_hub.py  —  单脚本一键桥接 + 翻译 + 指南输出
 
 只需运行本脚本，不再需要单独运行 udp_to_lsl.py。
 """
-
-import imp
-import sys
 import os
+import sys
 from pathlib import Path
-# 获取当前工作目录
-project_root = os.getcwd()
-# 确保项目根目录已添加到 sys.path
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-
-from paths import RECORDER_DATA_DIR, PROCESSED_DATA_DIR
-
+ROOT = Path(__file__).resolve().parents[3]  # Polar→bridge→src→(root)
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+# 从我们统一的路径管理器中导入所有需要的数据路径
+from paths import RECORDER_DATA_DIR
 
 # =============================================================================
 
@@ -183,7 +178,7 @@ def main():
     # 准备日志 在 recorder_data 下创建本次会话的专属文件夹
     # Path(CONFIG["LOGDIR"]).mkdir(parents=True, exist_ok=True)
     session_id = CONFIG.get("SESSION", time.strftime("S%Y%m%d-%H%M%S"))
-    session_dir = PROCESSED_DATA_DIR /  "logs" / session_id
+    session_dir = RECORDER_DATA_DIR /  "logs" / session_id
     session_dir.mkdir(parents=True, exist_ok=True)
     print(f"[*] 本次会話數據與日誌將保存至: {session_dir}")
 
