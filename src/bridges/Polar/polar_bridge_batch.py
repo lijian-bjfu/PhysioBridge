@@ -338,7 +338,7 @@ def main():
 
                     hb = {"hb":"polar", "udp_pkts": cnt_text, "handled": cnt_handled,
                     "unknown": cnt_unknown, "errors": cnt_errors,
-                    "udp_loss": metrics.total_loss(),  # 如果没有这个方法，可用 metrics.snapshot() 里算百分比
+                    "udp_loss": metrics.snapshot(),  # 如果没有这个方法，可用 metrics.snapshot() 里算百分比
                     "lat_avg_ms": round(clock.avg_latency_ms(), 1) if hasattr(clock,"avg_latency_ms") else 0}
                     print(json.dumps(hb, ensure_ascii=False))
 

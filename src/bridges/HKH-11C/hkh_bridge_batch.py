@@ -43,7 +43,7 @@ outlet = StreamOutlet(info)
 # =============================================================================
 # 从 COM3, COM5 找到端口
 BAUD_RATE = 115200
-CANDIDATE_PORTS = ['COM3', 'COM5']
+CANDIDATE_PORTS = ['COM5', 'COM3']
 COM_PORT = None  # 设备实际占用的COM端口号
 for p in CANDIDATE_PORTS:
     try:
