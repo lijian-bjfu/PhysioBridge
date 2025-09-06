@@ -35,6 +35,8 @@ import time
 import json
 import uuid
 import socket
+import signal
+import argparse
 import select  # 为 ESC 轮询读取 stdin
 
 # ========== 第三方库依赖 ==========
@@ -67,12 +69,19 @@ CONFIG = {
     # 旁路日志目录（逐条 UDP 入站都写一行 .jsonl）
     # "LOGDIR": str((Path(__file__).resolve().parent) / "logs"),
     # 控制台摘要间隔（秒）
-    "SUMMARY_EVERY": 5,
+    "SUMMARY_EVERY": 3,
     # UDP 接收缓冲（避免高吞吐丢包）
     "SO_RCVBUF": 4 * 1024 * 1024,
 
 }
 
+# 全局停止标志与信号处理
+STOP_FLAG = False
+def _sig_handler(signum, frame):
+    global STOP_FLAG
+    STOP_FLAG = True
+
+# 在 main() 开始时注册（
 
 # ========== 内部工具 ==========
 def _name(base: str) -> str:
@@ -153,6 +162,24 @@ class EscWatcher:
 
 
 def main():
+    # 注册新号
+    # 信号处理与参数
+    signal.signal(signal.SIGINT, _sig_handler)
+    signal.signal(signal.SIGTERM, _sig_handler)
+
+    ap = argparse.ArgumentParser(add_help=False)
+    ap.add_argument("--session")
+    ap.add_argument("--under-hub", action="store_true")
+    ap.add_argument("--hb-interval", type=float, default=2.0)
+    args, _ = ap.parse_known_args()
+    if args.session:
+        CONFIG["SESSION"] = args.session
+    if args.under_hub:
+        CONFIG["SUMMARY_EVERY"] = 10**9  # 等效禁用自播报
+    else:
+        CONFIG["SUMMARY_EVERY"] = max(0.5, args.hb_interval)
+    UNDER_HUB = args.under_hub
+
     # 准备日志 在 recorder_data 下创建本次会话的专属文件夹
     # Path(CONFIG["LOGDIR"]).mkdir(parents=True, exist_ok=True)
     session_id = CONFIG.get("SESSION", time.strftime("S%Y%m%d-%H%M%S"))
@@ -292,11 +319,6 @@ def main():
                         metrics.observe(obj, recv_monotonic)
                         # 非 pong 的业务包不需要 timesync 处理
 
-                    # 2) 丢给丢包统计
-                    # metrics.observe(obj, recv_monotonic)
-                    # 3) 如果这是 pong，则让 ping-pong 计算 RTT/offset
-                    # pp.on_datagram_json(obj, recv_t_pc=time.time(), device_hint=dev)
-
                 # 翻译器：仅当 obj 是 dict 时尝试解析与产出数值型 LSL
                 if isinstance(obj, dict) and not routed_marker:
                     # 翻译器：仅当 obj 是 dict 时尝试解析与产出数值型 LSL
@@ -318,6 +340,12 @@ def main():
                 now = time.time()
                 if now - t0 >= CONFIG["SUMMARY_EVERY"]:
                     print(f"[SUMMARY] text={cnt_text} markers={cnt_mark} handled={cnt_handled} unknown={cnt_unknown} errors={cnt_errors}")
+
+                    hb = {"hb":"polar", "udp_pkts": cnt_text, "handled": cnt_handled,
+                    "unknown": cnt_unknown, "errors": cnt_errors,
+                    "udp_loss": metrics.total_loss(),  # 如果没有这个方法，可用 metrics.snapshot() 里算百分比
+                    "lat_avg_ms": round(clock.avg_latency_ms(), 1) if hasattr(clock,"avg_latency_ms") else 0}
+                    print(json.dumps(hb, ensure_ascii=False))
 
                     print("  手机-电脑时间同步 :", json.dumps(pp.snapshot(), ensure_ascii=False))
 
@@ -345,11 +373,17 @@ def main():
                     
                 # + 在每轮循环末尾顺手检测一次 ESC
                 if esc.pressed():
-                    print("[bridge_hub] ESC pressed, preparing to shut down...")
+                    print("[bridge_hub] 您按下了 ESC 键，准备停止录制...")
+                    break
+                
+                # 接收到到停止信号 也停止
+                if STOP_FLAG:
+                    print("[bridge_hub] 收到停止信号，准备停止录制...")
                     break
 
+
     except KeyboardInterrupt:
-        print("\n[bridge_hub] interrupted by user. shutting down...")
+        print("\n[bridge_hub] 用户打断录制，停止录制...")
         
     finally:
         try:

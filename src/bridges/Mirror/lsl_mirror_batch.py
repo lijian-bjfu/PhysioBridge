@@ -11,6 +11,7 @@
 import sys, os, time, json, argparse, threading, select
 from pathlib import Path
 from typing import Dict, Any, List
+import signal
 
 from pylsl import resolve_streams, StreamInlet, cf_string
 import pyarrow as pa
@@ -19,23 +20,14 @@ import pyarrow.parquet as pq
 # ----------------- 配置（稳重、低占用） -----------------
 # ROOT = Path(__file__).resolve().parent
 # OUT_ROOT = ROOT / "Data" / "mirror_lsl_data"
-import sys
-from pathlib import Path
 
 # 获取当前工作目录
 project_root = os.getcwd()
-
 # 确保项目根目录已添加到 sys.path
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-
-# 从当前文件位置(utils)出发，向上走2层才能到达 PhysioBridge/ 根目录
-project_root = Path(__file__).resolve().parent
-if str(project_root) not in sys.path:
-    sys.path.insert(0, str(project_root))
-
 # 从我们统一的路径管理器中导入 mirror_data 的路径
-from src.utils.paths import MIRROR_DATA_DIR
+from paths import MIRROR_DATA_DIR
 
 DISCOVER_EVERY = 5.0        # 每 5s 扫一次现有 LSL 流
 PULL_SLEEP     = 0.02       # 主循环休眠（秒）
@@ -163,8 +155,10 @@ class EscWatcher:
 
 # ----------------- 主类：镜像写手 -----------------
 class Mirror:
-    def __init__(self, out_root: Path):
+    def __init__(self, out_root: Path, under_hub: bool = False, hb_every: float = 2.0):
         self.out_root = out_root
+        self.under_hub = bool(under_hub)
+        self.hb_every = float(hb_every)
         self.session = now_session_id()
         self.session_dir = self.out_root / self.session
         self.session_dir.mkdir(parents=True, exist_ok=True)
@@ -288,6 +282,13 @@ class Mirror:
             print()
 
     def run(self):
+        # 注册停止信号
+        STOP_FLAG = {"v": False}
+        def _sig_handler(signum, frame):
+            STOP_FLAG["v"] = True
+        signal.signal(signal.SIGINT, _sig_handler)
+        signal.signal(signal.SIGTERM, _sig_handler)
+
         print(f"[mirror] 输出目录: {self.session_dir}")
         print("[mirror] 已启动：按 ESC 结束录制。")
         last_discover = 0.0
@@ -301,14 +302,34 @@ class Mirror:
                     self.pull_once()
                     time.sleep(PULL_SLEEP)
 
-                    # 每 5s 打一行摘要
-                    if time.time() - self._last_summary >= 5.0:
-                        self._summary()
+                    # 打印间隔，根据hub的参数
+                    if time.time() - self._last_summary >= self.hb_every:
+                        # 先出一条心跳 JSON
+                        try:
+                            max_idle = 0.0
+                            for sid in self.writers.keys():
+                                idle = time.time() - (self.last_seen.get(sid,0) or 0)
+                                max_idle = max(max_idle, idle)
+                            hb = {"hb":"mirror", "streams": len(self.writers),
+                                "rows": sum(w.total_rows for w in self.writers.values()),
+                                "max_idle_s": round(max_idle,2)}
+                            print(json.dumps(hb, ensure_ascii=False))
+                        except Exception:
+                            pass
+                        # 仅非 under-hub，再打印人话摘要
+                        if not self.under_hub:
+                            self._summary()
                         self._last_summary = time.time()
 
+
                     if esc.pressed():
-                        print("[mirror] 检测到 ESC，准备停止录制。")
+                        print("[mirror] 检测到 ESC，准备停止录制镜像数据。")
                         break
+                        
+                    if STOP_FLAG["v"]:
+                        print("[mirror] 收到停止信号，准备停止录制镜像数据。")
+                        break
+
             except KeyboardInterrupt:
                 print("\n[mirror] 用户中断（Ctrl-C）。")
             finally:
@@ -334,13 +355,23 @@ class Mirror:
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--session", help="会话 ID（可选）")
     ap.add_argument("--out", default=str(MIRROR_DATA_DIR), help="输出根目录（默认 UDP2LSL/Data/mirror_lsl_data）")
+    ap.add_argument("--under-hub", action="store_true")
+    ap.add_argument("--hb-interval", type=float, default=2.0)
     args = ap.parse_args()
 
     out_root = Path(args.out)
     out_root.mkdir(parents=True, exist_ok=True)
+    hb_interval = max(0.5, args.hb_interval)
 
-    m = Mirror(out_root)
+    m = Mirror(out_root=out_root)
+    m = Mirror(out_root=out_root, under_hub=args.under_hub, hb_every=hb_interval)
+    if args.session:
+        m.session = args.session
+        m.session_dir = out_root / m.session
+        m.session_dir.mkdir(parents=True, exist_ok=True)
+
     m.run()
 
 if __name__ == "__main__":
