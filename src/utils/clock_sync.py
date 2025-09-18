@@ -28,10 +28,6 @@ class _OffsetEWMA:
                 sample_offset = self.offset + (self.clamp if delta > 0 else -self.clamp)
             self.offset = (1 - self.alpha) * self.offset + self.alpha * sample_offset
 
-            # debug：仅打印显著变化或首次
-            if abs(self.offset - old) > 0.5:   # 超过0.5s大跳
-                logger.info(f"[ClockSync] update(): sample_offset={sample_offset:.6f} old={old:.6f} new={self.offset:.6f} (clamped_delta={delta:.6f})")
-
         else:
             self.offset = sample_offset
             self.inited = True

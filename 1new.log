@@ -1,0 +1,630 @@
+[2025-09-19 04:09:41] INFO     physico:196 | [SESSION] host=lijian pid=17612 lsl_now=716755.981264 unix_now=1758226181.174 session=S20250919-040941-ff74
+[2025-09-19 04:09:52] INFO     physico:329 | [FIRST-RR] host_ts=716767.240236 keys=['device', 'ms', 'seq', 't_device', 'te', 'type'] t_device=1758226192.879901 te=1758226192.879901
+[2025-09-19 04:09:52] INFO     physico:360 | [BRIDGE-RECV] host_ts=716767.240236 type=rr payload_keys=['device', 'te', 'seq', 't_device', 'type', 'ms']
+[2025-09-19 04:09:52] INFO     physico:163 | [PARSER-RR-FIRST] device=H10 host_ts=716767.240236 t_device=1758226192.879901 te=1758226192.879901 miss_counts(t_device=0, te=0)
+[2025-09-19 04:09:52] INFO     physico:35 | [ClockSync] init offset=-1757509425.639665
+[2025-09-19 04:09:52] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226192.879901 te=1758226192.879901 ts_arrival=716767.240236 off=-1757509425.639665 mapped=716767.240236
+[2025-09-19 04:09:52] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716767.240236 (device=H10)
+[2025-09-19 04:09:52] INFO     physico:336 | [FIRST-ECG] host_ts=716767.517543 keys=['device', 'fs', 'n', 'seq', 't_device', 'type', 'uV']
+[2025-09-19 04:09:52] INFO     physico:360 | [BRIDGE-RECV] host_ts=716767.517543 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:09:52] INFO     physico:114 | [PARSER-ECG-FIRST] device=H10 fs=130.0Hz batch_n=73 host_ts=716767.517543
+[2025-09-19 04:09:53] INFO     physico:360 | [BRIDGE-RECV] host_ts=716768.023566 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:09:53] INFO     physico:360 | [BRIDGE-RECV] host_ts=716768.261420 type=rr payload_keys=['t_device', 'te', 'device', 'type', 'seq', 'ms']
+[2025-09-19 04:09:53] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226193.900008 te=1758226193.760901 ts_arrival=716768.261420 off=-1757509425.639611 mapped=716768.121290
+[2025-09-19 04:09:53] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716768.121290 (device=H10)
+[2025-09-19 04:09:53] INFO     physico:360 | [BRIDGE-RECV] host_ts=716768.588977 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:09:54] INFO     physico:360 | [BRIDGE-RECV] host_ts=716769.163039 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:09:54] INFO     physico:360 | [BRIDGE-RECV] host_ts=716769.251567 type=rr payload_keys=['device', 'te', 'seq', 't_device', 'type', 'ms']
+[2025-09-19 04:09:54] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226194.890797 te=1758226194.663901 ts_arrival=716769.251567 off=-1757509425.639592 mapped=716769.024309
+[2025-09-19 04:09:54] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716769.024309 (device=H10)
+[2025-09-19 04:09:54] INFO     physico:360 | [BRIDGE-RECV] host_ts=716769.252847 type=rr payload_keys=['device', 'te', 'seq', 't_device', 'type', 'ms']
+[2025-09-19 04:09:54] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226194.890797 te=1758226195.565901 ts_arrival=716769.252847 off=-1757509425.639510 mapped=716769.926391
+[2025-09-19 04:09:54] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716769.926391 (device=H10)
+[2025-09-19 04:09:54] INFO     physico:360 | [BRIDGE-RECV] host_ts=716769.674246 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:09:55] INFO     physico:360 | [BRIDGE-RECV] host_ts=716770.244177 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:09:55] INFO     physico:360 | [BRIDGE-RECV] host_ts=716770.249327 type=rr payload_keys=['device', 'ms', 't_device', 'type', 'seq', 'te']
+[2025-09-19 04:09:55] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226195.889669 te=1758226196.480901 ts_arrival=716770.249327 off=-1757509425.639551 mapped=716770.841350
+[2025-09-19 04:09:55] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716770.841350 (device=H10)
+[2025-09-19 04:09:56] INFO     physico:360 | [BRIDGE-RECV] host_ts=716770.845847 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:09:56] INFO     physico:360 | [BRIDGE-RECV] host_ts=716771.261812 type=rr payload_keys=['te', 'seq', 'type', 'ms', 't_device', 'device']
+[2025-09-19 04:09:56] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226196.900625 te=1758226197.347901 ts_arrival=716771.261812 off=-1757509425.639514 mapped=716771.708387
+[2025-09-19 04:09:56] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716771.708387 (device=H10)
+[2025-09-19 04:09:56] INFO     physico:360 | [BRIDGE-RECV] host_ts=716771.386704 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:09:57] INFO     physico:360 | [BRIDGE-RECV] host_ts=716771.951479 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:09:57] INFO     physico:360 | [BRIDGE-RECV] host_ts=716772.253759 type=rr payload_keys=['device', 'te', 'seq', 't_device', 'type', 'ms']
+[2025-09-19 04:09:57] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226197.891394 te=1758226198.232901 ts_arrival=716772.253759 off=-1757509425.639420 mapped=716772.593481
+[2025-09-19 04:09:57] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716772.593481 (device=H10)
+[2025-09-19 04:09:57] INFO     physico:360 | [BRIDGE-RECV] host_ts=716772.495077 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:09:58] INFO     physico:360 | [BRIDGE-RECV] host_ts=716773.094432 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:09:58] INFO     physico:360 | [BRIDGE-RECV] host_ts=716773.240270 type=rr payload_keys=['type', 'ms', 'te', 'device', 't_device', 'seq']
+[2025-09-19 04:09:58] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226198.879614 te=1758226199.118901 ts_arrival=716773.240270 off=-1757509425.639416 mapped=716773.479485
+[2025-09-19 04:09:58] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716773.479485 (device=H10)
+[2025-09-19 04:09:58] INFO     physico:360 | [BRIDGE-RECV] host_ts=716773.603980 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:09:59] INFO     physico:360 | [BRIDGE-RECV] host_ts=716774.201675 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:09:59] INFO     physico:360 | [BRIDGE-RECV] host_ts=716774.258167 type=rr payload_keys=['te', 'seq', 'type', 'ms', 't_device', 'device']
+[2025-09-19 04:09:59] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226199.898805 te=1758226200.003901 ts_arrival=716774.258167 off=-1757509425.639477 mapped=716774.364424
+[2025-09-19 04:09:59] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716774.364424 (device=H10)
+[2025-09-19 04:09:59] INFO     physico:360 | [BRIDGE-RECV] host_ts=716774.742512 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:00] INFO     physico:360 | [BRIDGE-RECV] host_ts=716775.251975 type=rr payload_keys=['type', 'device', 'seq', 'te', 't_device', 'ms']
+[2025-09-19 04:10:00] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226200.891036 te=1758226200.903901 ts_arrival=716775.251975 off=-1757509425.639457 mapped=716775.264444
+[2025-09-19 04:10:00] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716775.264444 (device=H10)
+[2025-09-19 04:10:00] INFO     physico:360 | [BRIDGE-RECV] host_ts=716775.310189 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:01] INFO     physico:360 | [BRIDGE-RECV] host_ts=716775.852861 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:01] INFO     physico:360 | [BRIDGE-RECV] host_ts=716776.240418 type=rr payload_keys=['type', 'ms', 'te', 'device', 't_device', 'seq']
+[2025-09-19 04:10:01] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226201.879715 te=1758226201.801901 ts_arrival=716776.240418 off=-1757509425.639449 mapped=716776.162452
+[2025-09-19 04:10:01] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716776.162452 (device=H10)
+[2025-09-19 04:10:01] INFO     physico:360 | [BRIDGE-RECV] host_ts=716776.422032 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:02] INFO     physico:360 | [BRIDGE-RECV] host_ts=716776.963672 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:02] INFO     physico:360 | [BRIDGE-RECV] host_ts=716777.260394 type=rr payload_keys=['ms', 'seq', 'type', 'device', 'te', 't_device']
+[2025-09-19 04:10:02] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226202.899559 te=1758226202.673901 ts_arrival=716777.260394 off=-1757509425.639435 mapped=716777.034467
+[2025-09-19 04:10:02] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716777.034467 (device=H10)
+[2025-09-19 04:10:02] INFO     physico:360 | [BRIDGE-RECV] host_ts=716777.261234 type=rr payload_keys=['ms', 'seq', 'type', 'device', 'te', 't_device']
+[2025-09-19 04:10:02] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226202.899559 te=1758226203.604901 ts_arrival=716777.261234 off=-1757509425.639379 mapped=716777.965522
+[2025-09-19 04:10:02] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716777.965522 (device=H10)
+[2025-09-19 04:10:02] INFO     physico:360 | [BRIDGE-RECV] host_ts=716777.562705 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:03] INFO     physico:360 | [BRIDGE-RECV] host_ts=716778.131725 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:03] INFO     physico:360 | [BRIDGE-RECV] host_ts=716778.247357 type=rr payload_keys=['te', 'device', 'ms', 'type', 't_device', 'seq']
+[2025-09-19 04:10:03] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226203.888526 te=1758226204.533901 ts_arrival=716778.247357 off=-1757509425.639468 mapped=716778.894433
+[2025-09-19 04:10:03] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716778.894433 (device=H10)
+[2025-09-19 04:10:03] INFO     physico:360 | [BRIDGE-RECV] host_ts=716778.669124 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:04] INFO     physico:360 | [BRIDGE-RECV] host_ts=716779.243220 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:04] INFO     physico:360 | [BRIDGE-RECV] host_ts=716779.249126 type=rr payload_keys=['te', 'device', 'seq', 't_device', 'ms', 'type']
+[2025-09-19 04:10:04] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226204.889686 te=1758226205.441901 ts_arrival=716779.249126 off=-1757509425.639523 mapped=716779.802378
+[2025-09-19 04:10:04] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716779.802378 (device=H10)
+[2025-09-19 04:10:04] INFO     physico:360 | [BRIDGE-RECV] host_ts=716779.782042 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:05] INFO     physico:360 | [BRIDGE-RECV] host_ts=716780.263603 type=rr payload_keys=['t_device', 'seq', 'ms', 'device', 'type', 'te']
+[2025-09-19 04:10:05] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226205.902256 te=1758226206.3479009 ts_arrival=716780.263603 off=-1757509425.639479 mapped=716780.708422
+[2025-09-19 04:10:05] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716780.708422 (device=H10)
+[2025-09-19 04:10:05] INFO     physico:360 | [BRIDGE-RECV] host_ts=716780.320310 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:06] INFO     physico:360 | [BRIDGE-RECV] host_ts=716780.922197 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:06] INFO     physico:360 | [BRIDGE-RECV] host_ts=716781.258919 type=rr payload_keys=['t_device', 'te', 'device', 'type', 'seq', 'ms']
+[2025-09-19 04:10:06] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226206.889099 te=1758226207.2669008 ts_arrival=716781.258919 off=-1757509425.639014 mapped=716781.627887
+[2025-09-19 04:10:06] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716781.627887 (device=H10)
+[2025-09-19 04:10:06] INFO     physico:360 | [BRIDGE-RECV] host_ts=716781.493402 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:07] INFO     physico:360 | [BRIDGE-RECV] host_ts=716782.031546 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:07] INFO     physico:360 | [BRIDGE-RECV] host_ts=716782.239390 type=rr payload_keys=['ms', 'te', 'seq', 'device', 't_device', 'type']
+[2025-09-19 04:10:07] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226207.878595 te=1758226208.1789007 ts_arrival=716782.239390 off=-1757509425.639024 mapped=716782.539877
+[2025-09-19 04:10:07] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716782.539877 (device=H10)
+[2025-09-19 04:10:07] INFO     physico:360 | [BRIDGE-RECV] host_ts=716782.602501 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:08] INFO     physico:360 | [BRIDGE-RECV] host_ts=716783.141625 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:08] INFO     physico:360 | [BRIDGE-RECV] host_ts=716783.261256 type=rr payload_keys=['t_device', 'te', 'device', 'type', 'seq', 'ms']
+[2025-09-19 04:10:08] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226208.900242 te=1758226209.0929008 ts_arrival=716783.261256 off=-1757509425.639022 mapped=716783.453879
+[2025-09-19 04:10:08] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716783.453879 (device=H10)
+[2025-09-19 04:10:08] INFO     physico:360 | [BRIDGE-RECV] host_ts=716783.711890 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:09] INFO     physico:360 | [BRIDGE-RECV] host_ts=716784.249300 type=rr payload_keys=['te', 'type', 'device', 't_device', 'ms', 'seq']
+[2025-09-19 04:10:09] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226209.888595 te=1758226209.9579008 ts_arrival=716784.249300 off=-1757509425.639035 mapped=716784.318866
+[2025-09-19 04:10:09] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716784.318866 (device=H10)
+[2025-09-19 04:10:09] INFO     physico:360 | [BRIDGE-RECV] host_ts=716784.309813 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:10] INFO     physico:360 | [BRIDGE-RECV] host_ts=716784.851468 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:10] INFO     physico:360 | [BRIDGE-RECV] host_ts=716785.239248 type=rr payload_keys=['te', 'seq', 't_device', 'type', 'device', 'ms']
+[2025-09-19 04:10:10] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226210.878681 te=1758226210.8239007 ts_arrival=716785.239248 off=-1757509425.639055 mapped=716785.184846
+[2025-09-19 04:10:10] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716785.184846 (device=H10)
+[2025-09-19 04:10:10] INFO     physico:360 | [BRIDGE-RECV] host_ts=716785.423776 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:11] INFO     physico:360 | [BRIDGE-RECV] host_ts=716785.964700 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:11] INFO     physico:360 | [BRIDGE-RECV] host_ts=716786.263652 type=rr payload_keys=['device', 'ms', 't_device', 'type', 'seq', 'te']
+[2025-09-19 04:10:11] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226211.902333 te=1758226211.6989007 ts_arrival=716786.263652 off=-1757509425.639036 mapped=716786.059865
+[2025-09-19 04:10:11] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716786.059865 (device=H10)
+[2025-09-19 04:10:11] INFO     physico:360 | [BRIDGE-RECV] host_ts=716786.264708 type=rr payload_keys=['device', 'ms', 't_device', 'type', 'seq', 'te']
+[2025-09-19 04:10:11] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226211.902333 te=1758226212.5799007 ts_arrival=716786.264708 off=-1757509425.638966 mapped=716786.940935
+[2025-09-19 04:10:11] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716786.940935 (device=H10)
+[2025-09-19 04:10:11] INFO     physico:360 | [BRIDGE-RECV] host_ts=716786.503417 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:12] INFO     physico:360 | [BRIDGE-RECV] host_ts=716787.072567 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:12] INFO     physico:360 | [BRIDGE-RECV] host_ts=716787.249979 type=rr payload_keys=['device', 'te', 'seq', 't_device', 'type', 'ms']
+[2025-09-19 04:10:12] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226212.888454 te=1758226213.4449008 ts_arrival=716787.249979 off=-1757509425.638941 mapped=716787.805960
+[2025-09-19 04:10:12] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716787.805960 (device=H10)
+[2025-09-19 04:10:12] INFO     physico:360 | [BRIDGE-RECV] host_ts=716787.672993 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:13] INFO     physico:360 | [BRIDGE-RECV] host_ts=716788.209889 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:13] INFO     physico:360 | [BRIDGE-RECV] host_ts=716788.237413 type=rr payload_keys=['te', 'seq', 'type', 'ms', 't_device', 'device']
+[2025-09-19 04:10:13] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226213.878306 te=1758226214.2989008 ts_arrival=716788.237413 off=-1757509425.639039 mapped=716788.659862
+[2025-09-19 04:10:13] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716788.659862 (device=H10)
+[2025-09-19 04:10:13] INFO     physico:360 | [BRIDGE-RECV] host_ts=716788.780105 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:14] INFO     physico:360 | [BRIDGE-RECV] host_ts=716789.263504 type=rr payload_keys=['seq', 't_device', 'device', 'type', 'ms', 'te']
+[2025-09-19 04:10:14] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226214.901659 te=1758226215.155901 ts_arrival=716789.263504 off=-1757509425.638994 mapped=716789.516906
+[2025-09-19 04:10:14] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716789.516906 (device=H10)
+[2025-09-19 04:10:14] INFO     physico:360 | [BRIDGE-RECV] host_ts=716789.353902 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:15] INFO     physico:360 | [BRIDGE-RECV] host_ts=716789.893121 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:15] INFO     physico:360 | [BRIDGE-RECV] host_ts=716790.249798 type=rr payload_keys=['seq', 't_device', 'device', 'type', 'ms', 'te']
+[2025-09-19 04:10:15] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226215.889043 te=1758226216.050901 ts_arrival=716790.249798 off=-1757509425.639007 mapped=716790.411894
+[2025-09-19 04:10:15] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716790.411894 (device=H10)
+[2025-09-19 04:10:15] INFO     physico:360 | [BRIDGE-RECV] host_ts=716790.431656 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:16] INFO     physico:360 | [BRIDGE-RECV] host_ts=716791.031557 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:16] INFO     physico:360 | [BRIDGE-RECV] host_ts=716791.239556 type=rr payload_keys=['type', 't_device', 'device', 'seq', 'ms', 'te']
+[2025-09-19 04:10:16] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226216.878755 te=1758226216.976901 ts_arrival=716791.239556 off=-1757509425.639016 mapped=716791.337885
+[2025-09-19 04:10:16] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716791.337885 (device=H10)
+[2025-09-19 04:10:16] INFO     physico:360 | [BRIDGE-RECV] host_ts=716791.572106 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:17] INFO     physico:360 | [BRIDGE-RECV] host_ts=716792.141725 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:17] INFO     physico:360 | [BRIDGE-RECV] host_ts=716792.258869 type=rr payload_keys=['type', 'device', 'seq', 'te', 't_device', 'ms']
+[2025-09-19 04:10:17] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226217.900339 te=1758226217.9129012 ts_arrival=716792.258869 off=-1757509425.639139 mapped=716792.273762
+[2025-09-19 04:10:17] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716792.273762 (device=H10)
+[2025-09-19 04:10:17] INFO     physico:360 | [BRIDGE-RECV] host_ts=716792.681821 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:18] INFO     physico:360 | [BRIDGE-RECV] host_ts=716793.252402 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:18] INFO     physico:360 | [BRIDGE-RECV] host_ts=716793.258802 type=rr payload_keys=['device', 'te', 'type', 't_device', 'seq', 'ms']
+[2025-09-19 04:10:18] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226218.899987 te=1758226218.8069012 ts_arrival=716793.258802 off=-1757509425.639241 mapped=716793.167660
+[2025-09-19 04:10:18] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716793.167660 (device=H10)
+[2025-09-19 04:10:18] INFO     physico:360 | [BRIDGE-RECV] host_ts=716793.793380 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:19] INFO     physico:360 | [BRIDGE-RECV] host_ts=716794.270034 type=rr payload_keys=['ms', 'seq', 'type', 'device', 'te', 't_device']
+[2025-09-19 04:10:19] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226219.908643 te=1758226219.7419012 ts_arrival=716794.270034 off=-1757509425.639210 mapped=716794.102692
+[2025-09-19 04:10:19] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716794.102692 (device=H10)
+[2025-09-19 04:10:19] INFO     physico:360 | [BRIDGE-RECV] host_ts=716794.394492 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:20] INFO     physico:360 | [BRIDGE-RECV] host_ts=716794.964693 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:20] INFO     physico:360 | [BRIDGE-RECV] host_ts=716795.292533 type=rr payload_keys=['seq', 'device', 'ms', 'type', 't_device', 'te']
+[2025-09-19 04:10:20] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226220.931778 te=1758226220.666901 ts_arrival=716795.292533 off=-1757509425.639211 mapped=716795.027690
+[2025-09-19 04:10:20] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716795.027690 (device=H10)
+[2025-09-19 04:10:20] INFO     physico:360 | [BRIDGE-RECV] host_ts=716795.293329 type=rr payload_keys=['seq', 'device', 'ms', 'type', 't_device', 'te']
+[2025-09-19 04:10:20] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226220.931778 te=1758226221.594901 ts_arrival=716795.293329 off=-1757509425.639173 mapped=716795.955728
+[2025-09-19 04:10:20] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716795.955728 (device=H10)
+[2025-09-19 04:10:20] INFO     physico:360 | [BRIDGE-RECV] host_ts=716795.502292 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:21] INFO     physico:360 | [BRIDGE-RECV] host_ts=716796.073819 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:21] INFO     physico:360 | [BRIDGE-RECV] host_ts=716796.250305 type=rr payload_keys=['ms', 'device', 'te', 'type', 't_device', 'seq']
+[2025-09-19 04:10:21] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226221.888610 te=1758226222.5219011 ts_arrival=716796.250305 off=-1757509425.639129 mapped=716796.882772
+[2025-09-19 04:10:21] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716796.882772 (device=H10)
+[2025-09-19 04:10:21] INFO     physico:360 | [BRIDGE-RECV] host_ts=716796.618758 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:22] INFO     physico:360 | [BRIDGE-RECV] host_ts=716797.152828 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:22] INFO     physico:360 | [BRIDGE-RECV] host_ts=716797.240410 type=rr payload_keys=['seq', 'device', 'ms', 'type', 't_device', 'te']
+[2025-09-19 04:10:22] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226222.878835 te=1758226223.404901 ts_arrival=716797.240410 off=-1757509425.639094 mapped=716797.765807
+[2025-09-19 04:10:22] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716797.765807 (device=H10)
+[2025-09-19 04:10:22] INFO     physico:360 | [BRIDGE-RECV] host_ts=716797.752524 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:23] INFO     physico:360 | [BRIDGE-RECV] host_ts=716798.259790 type=rr payload_keys=['device', 'type', 'seq', 't_device', 'ms', 'te']
+[2025-09-19 04:10:23] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226223.898733 te=1758226224.297901 ts_arrival=716798.259790 off=-1757509425.639087 mapped=716798.658814
+[2025-09-19 04:10:23] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716798.658814 (device=H10)
+[2025-09-19 04:10:23] INFO     physico:360 | [BRIDGE-RECV] host_ts=716798.321343 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:24] INFO     physico:360 | [BRIDGE-RECV] host_ts=716798.861674 type=ecg payload_keys=['type', 'uV', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:24] INFO     physico:360 | [BRIDGE-RECV] host_ts=716799.250669 type=rr payload_keys=['seq', 'device', 'ms', 'type', 't_device', 'te']
+[2025-09-19 04:10:24] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226224.888922 te=1758226225.187901 ts_arrival=716799.250669 off=-1757509425.639045 mapped=716799.548856
+[2025-09-19 04:10:24] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716799.548856 (device=H10)
+[2025-09-19 04:10:24] INFO     physico:360 | [BRIDGE-RECV] host_ts=716799.431816 type=ecg payload_keys=['uV', 'type', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:25] INFO     physico:360 | [BRIDGE-RECV] host_ts=716799.973589 type=ecg payload_keys=['uV', 'type', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:25] INFO     physico:360 | [BRIDGE-RECV] host_ts=716800.239490 type=rr payload_keys=['device', 'ms', 't_device', 'type', 'seq', 'te']
+[2025-09-19 04:10:25] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226225.878793 te=1758226226.083901 ts_arrival=716800.239490 off=-1757509425.639058 mapped=716800.444843
+[2025-09-19 04:10:25] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716800.444843 (device=H10)
+[2025-09-19 04:10:25] INFO     physico:360 | [BRIDGE-RECV] host_ts=716800.542144 type=ecg payload_keys=['type', 'uV', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:26] INFO     physico:360 | [BRIDGE-RECV] host_ts=716801.174311 type=ecg payload_keys=['uV', 'type', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:26] INFO     physico:360 | [BRIDGE-RECV] host_ts=716801.260028 type=rr payload_keys=['ms', 'te', 'device', 't_device', 'type', 'seq']
+[2025-09-19 04:10:26] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226226.898713 te=1758226226.9669008 ts_arrival=716801.260028 off=-1757509425.639039 mapped=716801.327862
+[2025-09-19 04:10:26] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716801.327862 (device=H10)
+[2025-09-19 04:10:26] INFO     physico:360 | [BRIDGE-RECV] host_ts=716801.682139 type=ecg payload_keys=['uV', 'type', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:27] INFO     physico:360 | [BRIDGE-RECV] host_ts=716802.221883 type=ecg payload_keys=['uV', 'type', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:27] INFO     physico:360 | [BRIDGE-RECV] host_ts=716802.247287 type=rr payload_keys=['te', 'seq', 'type', 'ms', 't_device', 'device']
+[2025-09-19 04:10:27] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226227.888661 te=1758226227.843901 ts_arrival=716802.247287 off=-1757509425.639156 mapped=716802.204745
+[2025-09-19 04:10:27] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716802.204745 (device=H10)
+[2025-09-19 04:10:27] INFO     physico:360 | [BRIDGE-RECV] host_ts=716802.252429 type=rr payload_keys=['te', 'seq', 'type', 'ms', 't_device', 'device']
+[2025-09-19 04:10:27] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226227.888661 te=1758226228.698901 ts_arrival=716802.252429 off=-1757509425.639009 mapped=716803.059891
+[2025-09-19 04:10:27] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716803.059891 (device=H10)
+[2025-09-19 04:10:27] INFO     physico:360 | [BRIDGE-RECV] host_ts=716802.791905 type=ecg payload_keys=['uV', 'type', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:28] INFO     physico:360 | [BRIDGE-RECV] host_ts=716803.241139 type=rr payload_keys=['device', 'te', 'type', 't_device', 'seq', 'ms']
+[2025-09-19 04:10:28] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226228.878942 te=1758226229.566901 ts_arrival=716803.241139 off=-1757509425.638949 mapped=716803.927952
+[2025-09-19 04:10:28] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716803.927952 (device=H10)
+[2025-09-19 04:10:28] INFO     physico:360 | [BRIDGE-RECV] host_ts=716803.393138 type=ecg payload_keys=['type', 'uV', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:29] INFO     physico:360 | [BRIDGE-RECV] host_ts=716803.904797 type=ecg payload_keys=['type', 'uV', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:29] INFO     physico:360 | [BRIDGE-RECV] host_ts=716804.262419 type=rr payload_keys=['seq', 't_device', 'device', 'type', 'ms', 'te']
+[2025-09-19 04:10:29] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226229.900116 te=1758226230.4369009 ts_arrival=716804.262419 off=-1757509425.638886 mapped=716804.798014
+[2025-09-19 04:10:29] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716804.798014 (device=H10)
+[2025-09-19 04:10:29] INFO     physico:360 | [BRIDGE-RECV] host_ts=716804.503368 type=ecg payload_keys=['uV', 'type', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:30] INFO     physico:360 | [BRIDGE-RECV] host_ts=716805.042814 type=ecg payload_keys=['type', 'uV', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:30] INFO     physico:360 | [BRIDGE-RECV] host_ts=716805.250933 type=rr payload_keys=['device', 'te', 'type', 't_device', 'seq', 'ms']
+[2025-09-19 04:10:30] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226230.888833 te=1758226231.313901 ts_arrival=716805.250933 off=-1757509425.638837 mapped=716805.675064
+[2025-09-19 04:10:30] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716805.675064 (device=H10)
+[2025-09-19 04:10:30] INFO     physico:360 | [BRIDGE-RECV] host_ts=716805.613514 type=ecg payload_keys=['type', 'uV', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:31] INFO     physico:360 | [BRIDGE-RECV] host_ts=716806.151741 type=ecg payload_keys=['type', 'uV', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:31] INFO     physico:360 | [BRIDGE-RECV] host_ts=716806.240760 type=rr payload_keys=['type', 'device', 'seq', 'te', 't_device', 'ms']
+[2025-09-19 04:10:31] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226231.880048 te=1758226232.1509008 ts_arrival=716806.240760 off=-1757509425.638859 mapped=716806.512042
+[2025-09-19 04:10:31] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716806.512042 (device=H10)
+[2025-09-19 04:10:31] INFO     physico:360 | [BRIDGE-RECV] host_ts=716806.721852 type=ecg payload_keys=['type', 'uV', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:32] INFO     physico:360 | [BRIDGE-RECV] host_ts=716807.262749 type=rr payload_keys=['ms', 'seq', 'type', 'device', 'te', 't_device']
+[2025-09-19 04:10:32] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226232.900449 te=1758226233.0059009 ts_arrival=716807.262749 off=-1757509425.638801 mapped=716807.367100
+[2025-09-19 04:10:32] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716807.367100 (device=H10)
+[2025-09-19 04:10:32] INFO     physico:360 | [BRIDGE-RECV] host_ts=716807.263910 type=ecg payload_keys=['uV', 'type', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:33] INFO     physico:360 | [BRIDGE-RECV] host_ts=716807.861990 type=ecg payload_keys=['uV', 'type', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:33] INFO     physico:360 | [BRIDGE-RECV] host_ts=716808.250079 type=rr payload_keys=['t_device', 'seq', 'ms', 'device', 'type', 'te']
+[2025-09-19 04:10:33] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226233.889302 te=1758226233.850901 ts_arrival=716808.250079 off=-1757509425.638822 mapped=716808.212079
+[2025-09-19 04:10:33] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716808.212079 (device=H10)
+[2025-09-19 04:10:33] INFO     physico:360 | [BRIDGE-RECV] host_ts=716808.250898 type=rr payload_keys=['t_device', 'seq', 'ms', 'device', 'type', 'te']
+[2025-09-19 04:10:33] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226233.889302 te=1758226234.7109008 ts_arrival=716808.250898 off=-1757509425.638801 mapped=716809.072100
+[2025-09-19 04:10:33] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716809.072100 (device=H10)
+[2025-09-19 04:10:33] INFO     physico:360 | [BRIDGE-RECV] host_ts=716808.405238 type=ecg payload_keys=['type', 'uV', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:34] INFO     physico:360 | [BRIDGE-RECV] host_ts=716808.971010 type=ecg payload_keys=['uV', 'type', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:34] INFO     physico:360 | [BRIDGE-RECV] host_ts=716809.239130 type=rr payload_keys=['ms', 'seq', 'type', 'device', 'te', 't_device']
+[2025-09-19 04:10:34] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226234.878844 te=1758226235.5489008 ts_arrival=716809.239130 off=-1757509425.638847 mapped=716809.910054
+[2025-09-19 04:10:34] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716809.910054 (device=H10)
+[2025-09-19 04:10:34] INFO     physico:360 | [BRIDGE-RECV] host_ts=716809.540159 type=ecg payload_keys=['type', 'uV', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:35] INFO     physico:360 | [BRIDGE-RECV] host_ts=716810.082287 type=ecg payload_keys=['type', 'uV', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:35] INFO     physico:360 | [BRIDGE-RECV] host_ts=716810.259781 type=rr payload_keys=['te', 'type', 'device', 't_device', 'ms', 'seq']
+[2025-09-19 04:10:35] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226235.899297 te=1758226236.3889008 ts_arrival=716810.259781 off=-1757509425.638880 mapped=716810.750021
+[2025-09-19 04:10:35] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716810.750021 (device=H10)
+[2025-09-19 04:10:35] INFO     physico:360 | [BRIDGE-RECV] host_ts=716810.619656 type=ecg payload_keys=['uV', 'type', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:36] INFO     physico:360 | [BRIDGE-RECV] host_ts=716811.222518 type=ecg payload_keys=['uV', 'type', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:36] INFO     physico:360 | [BRIDGE-RECV] host_ts=716811.248830 type=rr payload_keys=['t_device', 'te', 'device', 'type', 'seq', 'ms']
+[2025-09-19 04:10:36] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226236.888981 te=1758226237.2429008 ts_arrival=716811.248830 off=-1757509425.638943 mapped=716811.603957
+[2025-09-19 04:10:36] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716811.603957 (device=H10)
+[2025-09-19 04:10:36] INFO     physico:360 | [BRIDGE-RECV] host_ts=716811.794006 type=ecg payload_keys=['uV', 'type', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:37] INFO     physico:360 | [BRIDGE-RECV] host_ts=716812.240809 type=rr payload_keys=['t_device', 'te', 'device', 'type', 'seq', 'ms']
+[2025-09-19 04:10:37] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226237.879171 te=1758226238.0949008 ts_arrival=716812.240809 off=-1757509425.638914 mapped=716812.455986
+[2025-09-19 04:10:37] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716812.455986 (device=H10)
+[2025-09-19 04:10:37] INFO     physico:360 | [BRIDGE-RECV] host_ts=716812.333826 type=ecg payload_keys=['uV', 'type', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:38] INFO     physico:360 | [BRIDGE-RECV] host_ts=716812.905358 type=ecg payload_keys=['uV', 'type', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:38] INFO     physico:360 | [BRIDGE-RECV] host_ts=716813.259660 type=rr payload_keys=['ms', 'te', 'seq', 'device', 't_device', 'type']
+[2025-09-19 04:10:38] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226238.899246 te=1758226238.9439008 ts_arrival=716813.259660 off=-1757509425.638948 mapped=716813.304953
+[2025-09-19 04:10:38] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716813.304953 (device=H10)
+[2025-09-19 04:10:38] INFO     physico:360 | [BRIDGE-RECV] host_ts=716813.475353 type=ecg payload_keys=['uV', 'type', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:39] INFO     physico:360 | [BRIDGE-RECV] host_ts=716814.249835 type=rr payload_keys=['device', 'ms', 't_device', 'type', 'seq', 'te']
+[2025-09-19 04:10:39] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226239.889121 te=1758226239.7669008 ts_arrival=716814.249835 off=-1757509425.638965 mapped=716814.127936
+[2025-09-19 04:10:39] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716814.127936 (device=H10)
+[2025-09-19 04:10:39] INFO     physico:360 | [BRIDGE-RECV] host_ts=716814.250911 type=rr payload_keys=['device', 'ms', 't_device', 'type', 'seq', 'te']
+[2025-09-19 04:10:39] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226239.889121 te=1758226240.6119008 ts_arrival=716814.250911 off=-1757509425.638927 mapped=716814.972974
+[2025-09-19 04:10:39] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716814.972974 (device=H10)
+[2025-09-19 04:10:39] INFO     physico:360 | [BRIDGE-RECV] host_ts=716814.583348 type=ecg payload_keys=['uV', 'type', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:40] INFO     physico:360 | [BRIDGE-RECV] host_ts=716815.150519 type=ecg payload_keys=['uV', 'type', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:40] INFO     physico:360 | [BRIDGE-RECV] host_ts=716815.239347 type=rr payload_keys=['ms', 'te', 'seq', 'device', 't_device', 'type']
+[2025-09-19 04:10:40] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226240.879163 te=1758226241.468901 ts_arrival=716815.239347 off=-1757509425.638971 mapped=716815.829930
+[2025-09-19 04:10:40] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716815.829930 (device=H10)
+[2025-09-19 04:10:40] INFO     physico:360 | [BRIDGE-RECV] host_ts=716815.692413 type=ecg payload_keys=['uV', 'type', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:41] INFO     physico:360 | [BRIDGE-RECV] host_ts=716816.260628 type=rr payload_keys=['ms', 'te', 'device', 't_device', 'type', 'seq']
+[2025-09-19 04:10:41] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226241.899330 te=1758226242.336901 ts_arrival=716816.260628 off=-1757509425.638958 mapped=716816.697943
+[2025-09-19 04:10:41] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716816.697943 (device=H10)
+[2025-09-19 04:10:41] INFO     physico:360 | [BRIDGE-RECV] host_ts=716816.262740 type=ecg payload_keys=['uV', 'type', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:41] INFO     physico:360 | [BRIDGE-RECV] host_ts=716816.801699 type=ecg payload_keys=['type', 'uV', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:42] INFO     physico:360 | [BRIDGE-RECV] host_ts=716817.249695 type=rr payload_keys=['te', 'device', 'seq', 'type', 't_device', 'ms']
+[2025-09-19 04:10:42] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226242.889384 te=1758226243.195901 ts_arrival=716817.249695 off=-1757509425.638994 mapped=716817.556906
+[2025-09-19 04:10:42] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716817.556906 (device=H10)
+[2025-09-19 04:10:42] INFO     physico:360 | [BRIDGE-RECV] host_ts=716817.372501 type=ecg payload_keys=['type', 'uV', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:43] INFO     physico:360 | [BRIDGE-RECV] host_ts=716818.238409 type=rr payload_keys=['device', 'te', 'seq', 't_device', 'type', 'ms']
+[2025-09-19 04:10:43] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226243.879258 te=1758226244.056901 ts_arrival=716818.238409 off=-1757509425.639087 mapped=716818.417814
+[2025-09-19 04:10:43] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716818.417814 (device=H10)
+[2025-09-19 04:10:43] INFO     physico:360 | [BRIDGE-RECV] host_ts=716818.512632 type=ecg payload_keys=['uV', 'type', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:44] INFO     physico:360 | [BRIDGE-RECV] host_ts=716819.049622 type=ecg payload_keys=['uV', 'type', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:44] INFO     physico:360 | [BRIDGE-RECV] host_ts=716819.258240 type=rr payload_keys=['te', 'device', 'seq', 'type', 't_device', 'ms']
+[2025-09-19 04:10:44] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226244.899500 te=1758226244.934901 ts_arrival=716819.258240 off=-1757509425.639196 mapped=716819.295705
+[2025-09-19 04:10:44] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716819.295705 (device=H10)
+[2025-09-19 04:10:44] INFO     physico:360 | [BRIDGE-RECV] host_ts=716819.625323 type=ecg payload_keys=['type', 'uV', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:45] INFO     physico:360 | [BRIDGE-RECV] host_ts=716820.160434 type=ecg payload_keys=['type', 'uV', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:45] INFO     physico:360 | [BRIDGE-RECV] host_ts=716820.248755 type=rr payload_keys=['type', 'device', 'seq', 'te', 't_device', 'ms']
+[2025-09-19 04:10:45] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226245.889329 te=1758226245.821901 ts_arrival=716820.248755 off=-1757509425.639265 mapped=716820.182636
+[2025-09-19 04:10:45] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716820.182636 (device=H10)
+[2025-09-19 04:10:45] INFO     physico:360 | [BRIDGE-RECV] host_ts=716820.266285 type=rr payload_keys=['type', 'device', 'seq', 'te', 't_device', 'ms']
+[2025-09-19 04:10:45] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226245.889329 te=1758226246.680901 ts_arrival=716820.266285 off=-1757509425.638453 mapped=716821.042448
+[2025-09-19 04:10:45] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716821.042448 (device=H10)
+[2025-09-19 04:10:45] INFO     physico:360 | [BRIDGE-RECV] host_ts=716820.730062 type=ecg payload_keys=['type', 'uV', 'seq', 't_device', 'n', 'fs', 'device']
+[2025-09-19 04:10:46] INFO     physico:360 | [BRIDGE-RECV] host_ts=716821.239563 type=rr payload_keys=['te', 'seq', 't_device', 'type', 'device', 'ms']
+[2025-09-19 04:10:46] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226246.879417 te=1758226247.556901 ts_arrival=716821.239563 off=-1757509425.638523 mapped=716821.918378
+[2025-09-19 04:10:46] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716821.918378 (device=H10)
+[2025-09-19 04:10:46] INFO     physico:360 | [BRIDGE-RECV] host_ts=716821.366496 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:47] INFO     physico:360 | [BRIDGE-RECV] host_ts=716821.873099 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:47] INFO     physico:360 | [BRIDGE-RECV] host_ts=716822.258340 type=rr payload_keys=['ms', 'device', 'te', 'type', 't_device', 'seq']
+[2025-09-19 04:10:47] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226247.899349 te=1758226248.445901 ts_arrival=716822.258340 off=-1757509425.638648 mapped=716822.807253
+[2025-09-19 04:10:47] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716822.807253 (device=H10)
+[2025-09-19 04:10:47] INFO     physico:360 | [BRIDGE-RECV] host_ts=716822.441290 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:48] INFO     physico:360 | [BRIDGE-RECV] host_ts=716822.982137 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:48] INFO     physico:360 | [BRIDGE-RECV] host_ts=716823.248694 type=rr payload_keys=['te', 'device', 'seq', 't_device', 'ms', 'type']
+[2025-09-19 04:10:48] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226248.889600 te=1758226249.3319008 ts_arrival=716823.248694 off=-1757509425.638761 mapped=716823.693140
+[2025-09-19 04:10:48] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716823.693140 (device=H10)
+[2025-09-19 04:10:48] INFO     physico:360 | [BRIDGE-RECV] host_ts=716823.583056 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:49] INFO     physico:360 | [BRIDGE-RECV] host_ts=716824.097556 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:49] INFO     physico:360 | [BRIDGE-RECV] host_ts=716824.240571 type=rr payload_keys=['device', 'type', 'seq', 't_device', 'ms', 'te']
+[2025-09-19 04:10:49] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226249.879598 te=1758226250.1979008 ts_arrival=716824.240571 off=-1757509425.638774 mapped=716824.559127
+[2025-09-19 04:10:49] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716824.559127 (device=H10)
+[2025-09-19 04:10:49] INFO     physico:360 | [BRIDGE-RECV] host_ts=716824.694567 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:50] INFO     physico:360 | [BRIDGE-RECV] host_ts=716825.232579 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:50] INFO     physico:360 | [BRIDGE-RECV] host_ts=716825.258995 type=rr payload_keys=['seq', 'device', 'ms', 'type', 't_device', 'te']
+[2025-09-19 04:10:50] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226250.899294 te=1758226251.0419009 ts_arrival=716825.258995 off=-1757509425.638850 mapped=716825.403051
+[2025-09-19 04:10:50] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716825.403051 (device=H10)
+[2025-09-19 04:10:50] INFO     physico:360 | [BRIDGE-RECV] host_ts=716825.800113 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:51] INFO     physico:360 | [BRIDGE-RECV] host_ts=716826.251051 type=rr payload_keys=['seq', 'device', 'ms', 'type', 't_device', 'te']
+[2025-09-19 04:10:51] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226251.889413 te=1758226251.9169009 ts_arrival=716826.251051 off=-1757509425.638826 mapped=716826.278075
+[2025-09-19 04:10:51] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716826.278075 (device=H10)
+[2025-09-19 04:10:51] INFO     physico:360 | [BRIDGE-RECV] host_ts=716826.344620 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:52] INFO     physico:360 | [BRIDGE-RECV] host_ts=716826.912764 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:52] INFO     physico:360 | [BRIDGE-RECV] host_ts=716827.268562 type=rr payload_keys=['type', 'ms', 'te', 'device', 't_device', 'seq']
+[2025-09-19 04:10:52] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226252.909526 te=1758226252.797901 ts_arrival=716827.268562 off=-1757509425.638932 mapped=716827.158968
+[2025-09-19 04:10:52] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716827.158968 (device=H10)
+[2025-09-19 04:10:52] INFO     physico:360 | [BRIDGE-RECV] host_ts=716827.452599 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:53] INFO     physico:360 | [BRIDGE-RECV] host_ts=716828.052291 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:53] INFO     physico:360 | [BRIDGE-RECV] host_ts=716828.259441 type=rr payload_keys=['device', 'ms', 't_device', 'type', 'seq', 'te']
+[2025-09-19 04:10:53] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226253.899775 te=1758226253.697901 ts_arrival=716828.259441 off=-1757509425.639003 mapped=716828.058898
+[2025-09-19 04:10:53] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716828.058898 (device=H10)
+[2025-09-19 04:10:53] INFO     physico:360 | [BRIDGE-RECV] host_ts=716828.260249 type=rr payload_keys=['device', 'ms', 't_device', 'type', 'seq', 'te']
+[2025-09-19 04:10:53] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226253.899775 te=1758226254.574901 ts_arrival=716828.260249 off=-1757509425.639029 mapped=716828.935873
+[2025-09-19 04:10:53] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716828.935873 (device=H10)
+[2025-09-19 04:10:53] INFO     physico:360 | [BRIDGE-RECV] host_ts=716828.620132 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:54] INFO     physico:360 | [BRIDGE-RECV] host_ts=716829.160321 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:54] INFO     physico:360 | [BRIDGE-RECV] host_ts=716829.248448 type=rr payload_keys=['seq', 't_device', 'device', 'type', 'ms', 'te']
+[2025-09-19 04:10:54] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226254.889436 te=1758226255.4659011 ts_arrival=716829.248448 off=-1757509425.639127 mapped=716829.826775
+[2025-09-19 04:10:54] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716829.826775 (device=H10)
+[2025-09-19 04:10:54] INFO     physico:360 | [BRIDGE-RECV] host_ts=716829.702543 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:55] INFO     physico:360 | [BRIDGE-RECV] host_ts=716830.241408 type=rr payload_keys=['ms', 'te', 'device', 't_device', 'type', 'seq']
+[2025-09-19 04:10:55] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226255.879766 te=1758226256.357901 ts_arrival=716830.241408 off=-1757509425.639088 mapped=716830.718813
+[2025-09-19 04:10:55] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716830.718813 (device=H10)
+[2025-09-19 04:10:55] INFO     physico:360 | [BRIDGE-RECV] host_ts=716830.271274 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:56] INFO     physico:360 | [BRIDGE-RECV] host_ts=716830.812032 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:56] INFO     physico:360 | [BRIDGE-RECV] host_ts=716831.261845 type=rr payload_keys=['ms', 'seq', 'type', 'device', 'te', 't_device']
+[2025-09-19 04:10:56] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226256.900073 te=1758226257.255901 ts_arrival=716831.261845 off=-1757509425.639045 mapped=716831.616856
+[2025-09-19 04:10:56] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716831.616856 (device=H10)
+[2025-09-19 04:10:56] INFO     physico:360 | [BRIDGE-RECV] host_ts=716831.413156 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:57] INFO     physico:360 | [BRIDGE-RECV] host_ts=716831.983053 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:57] INFO     physico:360 | [BRIDGE-RECV] host_ts=716832.252842 type=rr payload_keys=['device', 'te', 'seq', 't_device', 'type', 'ms']
+[2025-09-19 04:10:57] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226257.890722 te=1758226258.110901 ts_arrival=716832.252842 off=-1757509425.638987 mapped=716832.471915
+[2025-09-19 04:10:57] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716832.471915 (device=H10)
+[2025-09-19 04:10:57] INFO     physico:360 | [BRIDGE-RECV] host_ts=716832.524980 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:58] INFO     physico:360 | [BRIDGE-RECV] host_ts=716833.096014 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:58] INFO     physico:360 | [BRIDGE-RECV] host_ts=716833.242373 type=rr payload_keys=['ms', 'seq', 'type', 'device', 'te', 't_device']
+[2025-09-19 04:10:58] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226258.879844 te=1758226258.9879012 ts_arrival=716833.242373 off=-1757509425.638911 mapped=716833.348991
+[2025-09-19 04:10:58] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716833.348991 (device=H10)
+[2025-09-19 04:10:58] INFO     physico:360 | [BRIDGE-RECV] host_ts=716833.664144 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:59] INFO     physico:360 | [BRIDGE-RECV] host_ts=716834.203889 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:10:59] INFO     physico:360 | [BRIDGE-RECV] host_ts=716834.260015 type=rr payload_keys=['type', 'device', 'seq', 'te', 't_device', 'ms']
+[2025-09-19 04:10:59] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226259.899741 te=1758226259.8629012 ts_arrival=716834.260015 off=-1757509425.638951 mapped=716834.223950
+[2025-09-19 04:10:59] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716834.223950 (device=H10)
+[2025-09-19 04:10:59] INFO     physico:360 | [BRIDGE-RECV] host_ts=716834.805367 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:00] INFO     physico:360 | [BRIDGE-RECV] host_ts=716835.251252 type=rr payload_keys=['ms', 'te', 'seq', 'device', 't_device', 'type']
+[2025-09-19 04:11:00] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226260.890514 te=1758226260.7549012 ts_arrival=716835.251252 off=-1757509425.638967 mapped=716835.115935
+[2025-09-19 04:11:00] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716835.115935 (device=H10)
+[2025-09-19 04:11:00] INFO     physico:360 | [BRIDGE-RECV] host_ts=716835.252071 type=rr payload_keys=['ms', 'te', 'seq', 'device', 't_device', 'type']
+[2025-09-19 04:11:00] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226260.890514 te=1758226261.643901 ts_arrival=716835.252071 off=-1757509425.638940 mapped=716836.004961
+[2025-09-19 04:11:00] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716836.004961 (device=H10)
+[2025-09-19 04:11:00] INFO     physico:360 | [BRIDGE-RECV] host_ts=716835.345468 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:01] INFO     physico:360 | [BRIDGE-RECV] host_ts=716835.884667 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:01] INFO     physico:360 | [BRIDGE-RECV] host_ts=716836.241068 type=rr payload_keys=['te', 'type', 'device', 't_device', 'ms', 'seq']
+[2025-09-19 04:11:01] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226261.880360 te=1758226262.518901 ts_arrival=716836.241068 off=-1757509425.638958 mapped=716836.879943
+[2025-09-19 04:11:01] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716836.879943 (device=H10)
+[2025-09-19 04:11:01] INFO     physico:360 | [BRIDGE-RECV] host_ts=716836.451693 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:02] INFO     physico:360 | [BRIDGE-RECV] host_ts=716836.995141 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:02] INFO     physico:360 | [BRIDGE-RECV] host_ts=716837.261592 type=rr payload_keys=['device', 'type', 'seq', 't_device', 'ms', 'te']
+[2025-09-19 04:11:02] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226262.900788 te=1758226263.410901 ts_arrival=716837.261592 off=-1757509425.638970 mapped=716837.771931
+[2025-09-19 04:11:02] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716837.771931 (device=H10)
+[2025-09-19 04:11:02] INFO     physico:360 | [BRIDGE-RECV] host_ts=716837.561468 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:03] INFO     physico:360 | [BRIDGE-RECV] host_ts=716838.164734 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:03] INFO     physico:360 | [BRIDGE-RECV] host_ts=716838.250721 type=rr payload_keys=['t_device', 'te', 'device', 'type', 'seq', 'ms']
+[2025-09-19 04:11:03] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226263.889985 te=1758226264.324901 ts_arrival=716838.250721 off=-1757509425.638984 mapped=716838.685917
+[2025-09-19 04:11:03] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716838.685917 (device=H10)
+[2025-09-19 04:11:03] INFO     physico:360 | [BRIDGE-RECV] host_ts=716838.702981 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:04] INFO     physico:360 | [BRIDGE-RECV] host_ts=716839.239603 type=rr payload_keys=['te', 'seq', 'type', 'ms', 't_device', 'device']
+[2025-09-19 04:11:04] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226264.879991 te=1758226265.2289011 ts_arrival=716839.239603 off=-1757509425.639054 mapped=716839.589847
+[2025-09-19 04:11:04] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716839.589847 (device=H10)
+[2025-09-19 04:11:04] INFO     physico:360 | [BRIDGE-RECV] host_ts=716839.270158 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:05] INFO     physico:360 | [BRIDGE-RECV] host_ts=716839.812198 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:05] INFO     physico:360 | [BRIDGE-RECV] host_ts=716840.260116 type=rr payload_keys=['seq', 'device', 'ms', 'type', 't_device', 'te']
+[2025-09-19 04:11:05] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226265.900694 te=1758226266.1089013 ts_arrival=716840.260116 off=-1757509425.639130 mapped=716840.469771
+[2025-09-19 04:11:05] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716840.469771 (device=H10)
+[2025-09-19 04:11:05] INFO     physico:360 | [BRIDGE-RECV] host_ts=716840.380952 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:06] INFO     physico:360 | [BRIDGE-RECV] host_ts=716840.921496 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:06] INFO     physico:360 | [BRIDGE-RECV] host_ts=716841.251699 type=rr payload_keys=['type', 'ms', 'te', 'device', 't_device', 'seq']
+[2025-09-19 04:11:06] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226266.889787 te=1758226266.9779012 ts_arrival=716841.251699 off=-1757509425.639078 mapped=716841.338823
+[2025-09-19 04:11:06] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716841.338823 (device=H10)
+[2025-09-19 04:11:06] INFO     physico:360 | [BRIDGE-RECV] host_ts=716841.523691 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:07] INFO     physico:360 | [BRIDGE-RECV] host_ts=716842.065304 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:07] INFO     physico:360 | [BRIDGE-RECV] host_ts=716842.242008 type=rr payload_keys=['type', 'seq', 'ms', 'te', 't_device', 'device']
+[2025-09-19 04:11:07] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226267.880019 te=1758226267.8579013 ts_arrival=716842.242008 off=-1757509425.639025 mapped=716842.218877
+[2025-09-19 04:11:07] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716842.218877 (device=H10)
+[2025-09-19 04:11:07] INFO     physico:360 | [BRIDGE-RECV] host_ts=716842.242864 type=rr payload_keys=['type', 'seq', 'ms', 'te', 't_device', 'device']
+[2025-09-19 04:11:07] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226267.880019 te=1758226268.7379014 ts_arrival=716842.242864 off=-1757509425.638931 mapped=716843.098970
+[2025-09-19 04:11:07] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716843.098970 (device=H10)
+[2025-09-19 04:11:07] INFO     physico:360 | [BRIDGE-RECV] host_ts=716842.639554 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:08] INFO     physico:360 | [BRIDGE-RECV] host_ts=716843.173695 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:08] INFO     physico:360 | [BRIDGE-RECV] host_ts=716843.259882 type=rr payload_keys=['t_device', 'seq', 'ms', 'device', 'type', 'te']
+[2025-09-19 04:11:08] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226268.899760 te=1758226269.5939014 ts_arrival=716843.259882 off=-1757509425.638978 mapped=716843.954923
+[2025-09-19 04:11:08] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716843.954923 (device=H10)
+[2025-09-19 04:11:08] INFO     physico:360 | [BRIDGE-RECV] host_ts=716843.774164 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:09] INFO     physico:360 | [BRIDGE-RECV] host_ts=716844.253244 type=rr payload_keys=['type', 't_device', 'device', 'seq', 'ms', 'te']
+[2025-09-19 04:11:09] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226269.890032 te=1758226270.4219015 ts_arrival=716844.253244 off=-1757509425.638869 mapped=716844.783033
+[2025-09-19 04:11:09] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716844.783033 (device=H10)
+[2025-09-19 04:11:09] INFO     physico:360 | [BRIDGE-RECV] host_ts=716844.282336 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:10] INFO     physico:360 | [BRIDGE-RECV] host_ts=716844.883352 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:10] INFO     physico:360 | [BRIDGE-RECV] host_ts=716845.270320 type=rr payload_keys=['te', 'device', 'seq', 't_device', 'ms', 'type']
+[2025-09-19 04:11:10] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226270.909970 te=1758226271.2249014 ts_arrival=716845.270320 off=-1757509425.638907 mapped=716845.585994
+[2025-09-19 04:11:10] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716845.585994 (device=H10)
+[2025-09-19 04:11:10] INFO     physico:360 | [BRIDGE-RECV] host_ts=716845.451681 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:11] INFO     physico:360 | [BRIDGE-RECV] host_ts=716845.993763 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:11] INFO     physico:360 | [BRIDGE-RECV] host_ts=716846.263740 type=rr payload_keys=['device', 'te', 'seq', 't_device', 'type', 'ms']
+[2025-09-19 04:11:11] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226271.902470 te=1758226272.0119014 ts_arrival=716846.263740 off=-1757509425.638898 mapped=716846.373003
+[2025-09-19 04:11:11] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716846.373003 (device=H10)
+[2025-09-19 04:11:11] INFO     physico:360 | [BRIDGE-RECV] host_ts=716846.264521 type=rr payload_keys=['device', 'te', 'seq', 't_device', 'type', 'ms']
+[2025-09-19 04:11:11] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226271.902470 te=1758226272.7709014 ts_arrival=716846.264521 off=-1757509425.638851 mapped=716847.132051
+[2025-09-19 04:11:11] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716847.132051 (device=H10)
+[2025-09-19 04:11:11] INFO     physico:360 | [BRIDGE-RECV] host_ts=716846.537014 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:12] INFO     physico:360 | [BRIDGE-RECV] host_ts=716847.100750 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:12] INFO     physico:360 | [BRIDGE-RECV] host_ts=716847.279683 type=rr payload_keys=['te', 'seq', 't_device', 'type', 'device', 'ms']
+[2025-09-19 04:11:12] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226272.919788 te=1758226273.5499015 ts_arrival=716847.279683 off=-1757509425.638914 mapped=716847.910988
+[2025-09-19 04:11:12] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716847.910988 (device=H10)
+[2025-09-19 04:11:12] INFO     physico:360 | [BRIDGE-RECV] host_ts=716847.642852 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:13] INFO     physico:360 | [BRIDGE-RECV] host_ts=716848.241003 type=rr payload_keys=['ms', 'device', 'te', 'type', 't_device', 'seq']
+[2025-09-19 04:11:13] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226273.880158 te=1758226274.3349016 ts_arrival=716848.241003 off=-1757509425.638926 mapped=716848.695976
+[2025-09-19 04:11:13] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716848.695976 (device=H10)
+[2025-09-19 04:11:13] INFO     physico:360 | [BRIDGE-RECV] host_ts=716848.243263 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:14] INFO     physico:360 | [BRIDGE-RECV] host_ts=716848.812439 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:14] INFO     physico:360 | [BRIDGE-RECV] host_ts=716849.263360 type=rr payload_keys=['te', 'seq', 't_device', 'type', 'device', 'ms']
+[2025-09-19 04:11:14] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226274.900860 te=1758226275.1439016 ts_arrival=716849.263360 off=-1757509425.638854 mapped=716849.505048
+[2025-09-19 04:11:14] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716849.505048 (device=H10)
+[2025-09-19 04:11:14] INFO     physico:360 | [BRIDGE-RECV] host_ts=716849.350245 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:15] INFO     physico:360 | [BRIDGE-RECV] host_ts=716849.922979 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:15] INFO     physico:360 | [BRIDGE-RECV] host_ts=716850.251900 type=rr payload_keys=['te', 'seq', 't_device', 'type', 'device', 'ms']
+[2025-09-19 04:11:15] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226275.890875 te=1758226275.9689016 ts_arrival=716850.251900 off=-1757509425.638860 mapped=716850.330042
+[2025-09-19 04:11:15] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716850.330042 (device=H10)
+[2025-09-19 04:11:15] INFO     physico:360 | [BRIDGE-RECV] host_ts=716850.464941 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:16] INFO     physico:360 | [BRIDGE-RECV] host_ts=716851.035079 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:16] INFO     physico:360 | [BRIDGE-RECV] host_ts=716851.240457 type=rr payload_keys=['device', 'type', 'seq', 't_device', 'ms', 'te']
+[2025-09-19 04:11:16] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226276.879796 te=1758226276.8089015 ts_arrival=716851.240457 off=-1757509425.638884 mapped=716851.170018
+[2025-09-19 04:11:16] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716851.170018 (device=H10)
+[2025-09-19 04:11:16] INFO     physico:360 | [BRIDGE-RECV] host_ts=716851.665050 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:17] INFO     physico:360 | [BRIDGE-RECV] host_ts=716852.172791 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:17] INFO     physico:360 | [BRIDGE-RECV] host_ts=716852.263307 type=rr payload_keys=['t_device', 'te', 'device', 'type', 'seq', 'ms']
+[2025-09-19 04:11:17] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226277.902408 te=1758226277.6839015 ts_arrival=716852.263307 off=-1757509425.638895 mapped=716852.045007
+[2025-09-19 04:11:17] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716852.045007 (device=H10)
+[2025-09-19 04:11:17] INFO     physico:360 | [BRIDGE-RECV] host_ts=716852.264321 type=rr payload_keys=['t_device', 'te', 'device', 'type', 'seq', 'ms']
+[2025-09-19 04:11:17] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226277.902408 te=1758226278.5829015 ts_arrival=716852.264321 off=-1757509425.638854 mapped=716852.944047
+[2025-09-19 04:11:17] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716852.944047 (device=H10)
+[2025-09-19 04:11:17] INFO     physico:360 | [BRIDGE-RECV] host_ts=716852.712823 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:18] INFO     physico:360 | [BRIDGE-RECV] host_ts=716853.252364 type=rr payload_keys=['device', 'ms', 't_device', 'type', 'seq', 'te']
+[2025-09-19 04:11:18] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226278.890626 te=1758226279.4879014 ts_arrival=716853.252364 off=-1757509425.638824 mapped=716853.849077
+[2025-09-19 04:11:18] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716853.849077 (device=H10)
+[2025-09-19 04:11:18] INFO     physico:360 | [BRIDGE-RECV] host_ts=716853.282717 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:19] INFO     physico:360 | [BRIDGE-RECV] host_ts=716853.823682 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:19] INFO     physico:360 | [BRIDGE-RECV] host_ts=716854.240737 type=rr payload_keys=['seq', 'device', 'ms', 'type', 't_device', 'te']
+[2025-09-19 04:11:19] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226279.879964 te=1758226280.3649015 ts_arrival=716854.240737 off=-1757509425.638844 mapped=716854.726057
+[2025-09-19 04:11:19] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716854.726057 (device=H10)
+[2025-09-19 04:11:19] INFO     physico:360 | [BRIDGE-RECV] host_ts=716854.392767 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:20] INFO     physico:360 | [BRIDGE-RECV] host_ts=716854.993203 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:20] INFO     physico:360 | [BRIDGE-RECV] host_ts=716855.263601 type=rr payload_keys=['te', 'seq', 'type', 'ms', 't_device', 'device']
+[2025-09-19 04:11:20] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226280.902348 te=1758226281.2349014 ts_arrival=716855.263601 off=-1757509425.638839 mapped=716855.596062
+[2025-09-19 04:11:20] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716855.596062 (device=H10)
+[2025-09-19 04:11:20] INFO     physico:360 | [BRIDGE-RECV] host_ts=716855.533642 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:21] INFO     physico:360 | [BRIDGE-RECV] host_ts=716856.103080 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:21] INFO     physico:360 | [BRIDGE-RECV] host_ts=716856.250956 type=rr payload_keys=['type', 'seq', 'ms', 'te', 't_device', 'device']
+[2025-09-19 04:11:21] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226281.889914 te=1758226282.1059015 ts_arrival=716856.250956 off=-1757509425.638845 mapped=716856.467056
+[2025-09-19 04:11:21] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716856.467056 (device=H10)
+[2025-09-19 04:11:21] INFO     physico:360 | [BRIDGE-RECV] host_ts=716856.642715 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:22] INFO     physico:360 | [BRIDGE-RECV] host_ts=716857.182913 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:22] INFO     physico:360 | [BRIDGE-RECV] host_ts=716857.239878 type=rr payload_keys=['te', 'seq', 'type', 'ms', 't_device', 'device']
+[2025-09-19 04:11:22] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226282.881348 te=1758226282.9659014 ts_arrival=716857.239878 off=-1757509425.638976 mapped=716857.326925
+[2025-09-19 04:11:22] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716857.326925 (device=H10)
+[2025-09-19 04:11:22] INFO     physico:360 | [BRIDGE-RECV] host_ts=716857.752753 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:23] INFO     physico:360 | [BRIDGE-RECV] host_ts=716858.231003 type=rr payload_keys=['type', 't_device', 'device', 'seq', 'ms', 'te']
+[2025-09-19 04:11:23] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226283.870212 te=1758226283.7919014 ts_arrival=716858.231003 off=-1757509425.638988 mapped=716858.152913
+[2025-09-19 04:11:23] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716858.152913 (device=H10)
+[2025-09-19 04:11:23] INFO     physico:360 | [BRIDGE-RECV] host_ts=716858.232174 type=rr payload_keys=['type', 't_device', 'device', 'seq', 'ms', 'te']
+[2025-09-19 04:11:23] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226283.870212 te=1758226284.6589015 ts_arrival=716858.232174 off=-1757509425.638940 mapped=716859.019961
+[2025-09-19 04:11:23] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716859.019961 (device=H10)
+[2025-09-19 04:11:23] INFO     physico:360 | [BRIDGE-RECV] host_ts=716858.354584 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:24] INFO     physico:360 | [BRIDGE-RECV] host_ts=716858.894339 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:24] INFO     physico:360 | [BRIDGE-RECV] host_ts=716859.251273 type=rr payload_keys=['device', 'te', 'seq', 't_device', 'type', 'ms']
+[2025-09-19 04:11:24] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226284.889976 te=1758226285.5299015 ts_arrival=716859.251273 off=-1757509425.638928 mapped=716859.890973
+[2025-09-19 04:11:24] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716859.890973 (device=H10)
+[2025-09-19 04:11:24] INFO     physico:360 | [BRIDGE-RECV] host_ts=716859.463048 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:25] INFO     physico:360 | [BRIDGE-RECV] host_ts=716860.033539 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:25] INFO     physico:360 | [BRIDGE-RECV] host_ts=716860.273287 type=rr payload_keys=['type', 'device', 'seq', 'te', 't_device', 'ms']
+[2025-09-19 04:11:25] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226285.912529 te=1758226286.4139016 ts_arrival=716860.273287 off=-1757509425.638944 mapped=716860.774957
+[2025-09-19 04:11:25] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716860.774957 (device=H10)
+[2025-09-19 04:11:25] INFO     physico:360 | [BRIDGE-RECV] host_ts=716860.575597 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:26] INFO     physico:360 | [BRIDGE-RECV] host_ts=716861.119472 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:26] INFO     physico:360 | [BRIDGE-RECV] host_ts=716861.262152 type=rr payload_keys=['ms', 'device', 'te', 'type', 't_device', 'seq']
+[2025-09-19 04:11:26] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226286.899873 te=1758226287.2719016 ts_arrival=716861.262152 off=-1757509425.638883 mapped=716861.633019
+[2025-09-19 04:11:26] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716861.633019 (device=H10)
+[2025-09-19 04:11:26] INFO     physico:360 | [BRIDGE-RECV] host_ts=716861.713997 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:27] INFO     physico:360 | [BRIDGE-RECV] host_ts=716862.250534 type=rr payload_keys=['seq', 't_device', 'device', 'type', 'ms', 'te']
+[2025-09-19 04:11:27] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226287.890223 te=1758226288.1609015 ts_arrival=716862.250534 off=-1757509425.638923 mapped=716862.521978
+[2025-09-19 04:11:27] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716862.521978 (device=H10)
+[2025-09-19 04:11:27] INFO     physico:360 | [BRIDGE-RECV] host_ts=716862.282872 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:28] INFO     physico:360 | [BRIDGE-RECV] host_ts=716862.823261 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:28] INFO     physico:360 | [BRIDGE-RECV] host_ts=716863.243832 type=rr payload_keys=['te', 'seq', 't_device', 'type', 'device', 'ms']
+[2025-09-19 04:11:28] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226288.883057 te=1758226289.0479016 ts_arrival=716863.243832 off=-1757509425.638938 mapped=716863.408963
+[2025-09-19 04:11:28] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716863.408963 (device=H10)
+[2025-09-19 04:11:28] INFO     physico:360 | [BRIDGE-RECV] host_ts=716863.364893 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:29] INFO     physico:360 | [BRIDGE-RECV] host_ts=716863.932694 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:29] INFO     physico:360 | [BRIDGE-RECV] host_ts=716864.230326 type=rr payload_keys=['ms', 'te', 'seq', 'device', 't_device', 'type']
+[2025-09-19 04:11:29] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226289.870207 te=1758226289.9199016 ts_arrival=716864.230326 off=-1757509425.638985 mapped=716864.280916
+[2025-09-19 04:11:29] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716864.280916 (device=H10)
+[2025-09-19 04:11:29] INFO     physico:360 | [BRIDGE-RECV] host_ts=716864.472490 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:30] INFO     physico:360 | [BRIDGE-RECV] host_ts=716865.076559 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:30] INFO     physico:360 | [BRIDGE-RECV] host_ts=716865.284054 type=rr payload_keys=['te', 'device', 'seq', 't_device', 'ms', 'type']
+[2025-09-19 04:11:30] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226290.920133 te=1758226290.8029015 ts_arrival=716865.284054 off=-1757509425.638840 mapped=716865.164061
+[2025-09-19 04:11:30] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716865.164061 (device=H10)
+[2025-09-19 04:11:30] INFO     physico:360 | [BRIDGE-RECV] host_ts=716865.643970 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:31] INFO     physico:360 | [BRIDGE-RECV] host_ts=716866.187691 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:31] INFO     physico:360 | [BRIDGE-RECV] host_ts=716866.242463 type=rr payload_keys=['t_device', 'te', 'device', 'type', 'seq', 'ms']
+[2025-09-19 04:11:31] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226291.881557 te=1758226291.6989014 ts_arrival=716866.242463 off=-1757509425.638853 mapped=716866.060049
+[2025-09-19 04:11:31] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716866.060049 (device=H10)
+[2025-09-19 04:11:31] INFO     physico:360 | [BRIDGE-RECV] host_ts=716866.243310 type=rr payload_keys=['t_device', 'te', 'device', 'type', 'seq', 'ms']
+[2025-09-19 04:11:31] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226291.881557 te=1758226292.5929015 ts_arrival=716866.243310 off=-1757509425.638823 mapped=716866.954079
+[2025-09-19 04:11:31] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716866.954079 (device=H10)
+[2025-09-19 04:11:31] INFO     physico:360 | [BRIDGE-RECV] host_ts=716866.761348 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:32] INFO     physico:360 | [BRIDGE-RECV] host_ts=716867.231949 type=rr payload_keys=['te', 'device', 'seq', 't_device', 'ms', 'type']
+[2025-09-19 04:11:32] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226292.870146 te=1758226293.4639015 ts_arrival=716867.231949 off=-1757509425.638791 mapped=716867.825110
+[2025-09-19 04:11:32] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716867.825110 (device=H10)
+[2025-09-19 04:11:32] INFO     physico:360 | [BRIDGE-RECV] host_ts=716867.291277 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:33] INFO     physico:360 | [BRIDGE-RECV] host_ts=716867.863725 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:33] INFO     physico:360 | [BRIDGE-RECV] host_ts=716868.253341 type=rr payload_keys=['ms', 'te', 'device', 't_device', 'type', 'seq']
+[2025-09-19 04:11:33] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226293.891418 te=1758226294.3699014 ts_arrival=716868.253341 off=-1757509425.638755 mapped=716868.731146
+[2025-09-19 04:11:33] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716868.731146 (device=H10)
+[2025-09-19 04:11:33] INFO     physico:360 | [BRIDGE-RECV] host_ts=716868.463823 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:34] INFO     physico:360 | [BRIDGE-RECV] host_ts=716869.002127 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:34] INFO     physico:360 | [BRIDGE-RECV] host_ts=716869.245797 type=rr payload_keys=['te', 'device', 'seq', 't_device', 'ms', 'type']
+[2025-09-19 04:11:34] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226294.883580 te=1758226295.2859013 ts_arrival=716869.245797 off=-1757509425.638707 mapped=716869.647195
+[2025-09-19 04:11:34] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716869.647195 (device=H10)
+[2025-09-19 04:11:34] INFO     physico:360 | [BRIDGE-RECV] host_ts=716869.548215 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:35] INFO     physico:360 | [BRIDGE-RECV] host_ts=716870.114143 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:35] INFO     physico:360 | [BRIDGE-RECV] host_ts=716870.230837 type=rr payload_keys=['type', 't_device', 'device', 'seq', 'ms', 'te']
+[2025-09-19 04:11:35] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226295.870256 te=1758226296.1819012 ts_arrival=716870.230837 off=-1757509425.638742 mapped=716870.543159
+[2025-09-19 04:11:35] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716870.543159 (device=H10)
+[2025-09-19 04:11:35] INFO     physico:360 | [BRIDGE-RECV] host_ts=716870.652830 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:36] INFO     physico:360 | [BRIDGE-RECV] host_ts=716871.220772 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:36] INFO     physico:360 | [BRIDGE-RECV] host_ts=716871.249589 type=rr payload_keys=['t_device', 'seq', 'ms', 'device', 'type', 'te']
+[2025-09-19 04:11:36] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226296.890091 te=1758226297.0699012 ts_arrival=716871.249589 off=-1757509425.638830 mapped=716871.431071
+[2025-09-19 04:11:36] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716871.431071 (device=H10)
+[2025-09-19 04:11:37] INFO     physico:360 | [BRIDGE-RECV] host_ts=716871.853102 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:37] INFO     physico:360 | [BRIDGE-RECV] host_ts=716872.243733 type=rr payload_keys=['te', 'type', 'device', 't_device', 'ms', 'seq']
+[2025-09-19 04:11:37] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226297.883167 te=1758226297.9749012 ts_arrival=716872.243733 off=-1757509425.638860 mapped=716872.336041
+[2025-09-19 04:11:37] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716872.336041 (device=H10)
+[2025-09-19 04:11:37] INFO     physico:360 | [BRIDGE-RECV] host_ts=716872.366761 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:38] INFO     physico:360 | [BRIDGE-RECV] host_ts=716872.933126 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:38] INFO     physico:360 | [BRIDGE-RECV] host_ts=716873.230684 type=rr payload_keys=['t_device', 'seq', 'ms', 'device', 'type', 'te']
+[2025-09-19 04:11:38] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226298.870172 te=1758226298.8819013 ts_arrival=716873.230684 off=-1757509425.638891 mapped=716873.243010
+[2025-09-19 04:11:38] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716873.243010 (device=H10)
+[2025-09-19 04:11:38] INFO     physico:360 | [BRIDGE-RECV] host_ts=716873.470709 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:39] INFO     physico:360 | [BRIDGE-RECV] host_ts=716874.013394 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:39] INFO     physico:360 | [BRIDGE-RECV] host_ts=716874.251213 type=rr payload_keys=['type', 'device', 'seq', 'te', 't_device', 'ms']
+[2025-09-19 04:11:39] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226299.890469 te=1758226299.7649012 ts_arrival=716874.251213 off=-1757509425.638910 mapped=716874.125992
+[2025-09-19 04:11:39] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716874.125992 (device=H10)
+[2025-09-19 04:11:39] INFO     physico:360 | [BRIDGE-RECV] host_ts=716874.252010 type=rr payload_keys=['type', 'device', 'seq', 'te', 't_device', 'ms']
+[2025-09-19 04:11:39] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226299.890469 te=1758226300.630901 ts_arrival=716874.252010 off=-1757509425.638887 mapped=716874.992014
+[2025-09-19 04:11:39] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716874.992014 (device=H10)
+[2025-09-19 04:11:39] INFO     physico:360 | [BRIDGE-RECV] host_ts=716874.582981 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:40] INFO     physico:360 | [BRIDGE-RECV] host_ts=716875.183395 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:40] INFO     physico:360 | [BRIDGE-RECV] host_ts=716875.241090 type=rr payload_keys=['device', 'type', 'seq', 't_device', 'ms', 'te']
+[2025-09-19 04:11:40] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226300.882120 te=1758226301.5089011 ts_arrival=716875.241090 off=-1757509425.638994 mapped=716875.869907
+[2025-09-19 04:11:40] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716875.869907 (device=H10)
+[2025-09-19 04:11:40] INFO     physico:360 | [BRIDGE-RECV] host_ts=716875.723090 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:41] INFO     physico:360 | [BRIDGE-RECV] host_ts=716876.232374 type=rr payload_keys=['device', 'te', 'seq', 't_device', 'type', 'ms']
+[2025-09-19 04:11:41] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226301.870310 te=1758226302.394901 ts_arrival=716876.232374 off=-1757509425.638941 mapped=716876.755960
+[2025-09-19 04:11:41] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716876.755960 (device=H10)
+[2025-09-19 04:11:41] INFO     physico:360 | [BRIDGE-RECV] host_ts=716876.291864 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:42] INFO     physico:360 | [BRIDGE-RECV] host_ts=716876.834589 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:42] INFO     physico:360 | [BRIDGE-RECV] host_ts=716877.254687 type=rr payload_keys=['ms', 'te', 'seq', 'device', 't_device', 'type']
+[2025-09-19 04:11:42] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226302.891946 te=1758226303.269901 ts_arrival=716877.254687 off=-1757509425.638857 mapped=716877.631044
+[2025-09-19 04:11:42] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716877.631044 (device=H10)
+[2025-09-19 04:11:42] INFO     physico:360 | [BRIDGE-RECV] host_ts=716877.401371 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:43] INFO     physico:360 | [BRIDGE-RECV] host_ts=716877.943925 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:43] INFO     physico:360 | [BRIDGE-RECV] host_ts=716878.241872 type=rr payload_keys=['te', 'seq', 't_device', 'type', 'device', 'ms']
+[2025-09-19 04:11:43] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226303.880415 te=1758226304.147901 ts_arrival=716878.241872 off=-1757509425.638841 mapped=716878.509060
+[2025-09-19 04:11:43] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716878.509060 (device=H10)
+[2025-09-19 04:11:43] INFO     physico:360 | [BRIDGE-RECV] host_ts=716878.544574 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:44] INFO     physico:360 | [BRIDGE-RECV] host_ts=716879.113806 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:44] INFO     physico:360 | [BRIDGE-RECV] host_ts=716879.232462 type=rr payload_keys=['ms', 'te', 'seq', 'device', 't_device', 'type']
+[2025-09-19 04:11:44] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226304.871178 te=1758226304.995901 ts_arrival=716879.232462 off=-1757509425.638835 mapped=716879.357066
+[2025-09-19 04:11:44] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716879.357066 (device=H10)
+[2025-09-19 04:11:44] INFO     physico:360 | [BRIDGE-RECV] host_ts=716879.653759 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:45] INFO     physico:360 | [BRIDGE-RECV] host_ts=716880.225709 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:45] INFO     physico:360 | [BRIDGE-RECV] host_ts=716880.251219 type=rr payload_keys=['t_device', 'te', 'device', 'type', 'seq', 'ms']
+[2025-09-19 04:11:45] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226305.891442 te=1758226305.880901 ts_arrival=716880.251219 off=-1757509425.638904 mapped=716880.241997
+[2025-09-19 04:11:45] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716880.241997 (device=H10)
+[2025-09-19 04:11:45] INFO     physico:360 | [BRIDGE-RECV] host_ts=716880.763759 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:46] INFO     physico:360 | [BRIDGE-RECV] host_ts=716881.241289 type=rr payload_keys=['ms', 'device', 'te', 'type', 't_device', 'seq']
+[2025-09-19 04:11:46] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226306.880571 te=1758226306.776901 ts_arrival=716881.241289 off=-1757509425.638923 mapped=716881.137978
+[2025-09-19 04:11:46] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716881.137978 (device=H10)
+[2025-09-19 04:11:46] INFO     physico:360 | [BRIDGE-RECV] host_ts=716881.242156 type=rr payload_keys=['ms', 'device', 'te', 'type', 't_device', 'seq']
+[2025-09-19 04:11:46] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226306.880571 te=1758226307.681901 ts_arrival=716881.242156 off=-1757509425.638897 mapped=716882.043004
+[2025-09-19 04:11:46] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716882.043004 (device=H10)
+[2025-09-19 04:11:46] INFO     physico:360 | [BRIDGE-RECV] host_ts=716881.302619 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:47] INFO     physico:360 | [BRIDGE-RECV] host_ts=716881.904574 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:47] INFO     physico:360 | [BRIDGE-RECV] host_ts=716882.232700 type=rr payload_keys=['te', 'device', 'seq', 'type', 't_device', 'ms']
+[2025-09-19 04:11:47] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226307.870591 te=1758226308.560901 ts_arrival=716882.232700 off=-1757509425.638847 mapped=716882.922054
+[2025-09-19 04:11:47] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716882.922054 (device=H10)
+[2025-09-19 04:11:47] INFO     physico:360 | [BRIDGE-RECV] host_ts=716882.471659 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:48] INFO     physico:360 | [BRIDGE-RECV] host_ts=716883.013939 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:48] INFO     physico:360 | [BRIDGE-RECV] host_ts=716883.254508 type=rr payload_keys=['ms', 'device', 'te', 'type', 't_device', 'seq']
+[2025-09-19 04:11:48] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226308.893132 te=1758226309.4079008 ts_arrival=716883.254508 off=-1757509425.638836 mapped=716883.769065
+[2025-09-19 04:11:48] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716883.769065 (device=H10)
+[2025-09-19 04:11:48] INFO     physico:360 | [BRIDGE-RECV] host_ts=716883.612005 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:49] INFO     physico:360 | [BRIDGE-RECV] host_ts=716884.142198 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:49] INFO     physico:360 | [BRIDGE-RECV] host_ts=716884.242000 type=rr payload_keys=['te', 'device', 'seq', 't_device', 'ms', 'type']
+[2025-09-19 04:11:49] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226309.881426 te=1758226310.2279007 ts_arrival=716884.242000 off=-1757509425.638865 mapped=716884.589036
+[2025-09-19 04:11:49] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716884.589036 (device=H10)
+[2025-09-19 04:11:49] INFO     physico:360 | [BRIDGE-RECV] host_ts=716884.695118 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:50] INFO     physico:360 | [BRIDGE-RECV] host_ts=716885.233482 type=rr payload_keys=['te', 'type', 'device', 't_device', 'ms', 'seq']
+[2025-09-19 04:11:50] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226310.872564 te=1758226311.0859008 ts_arrival=716885.233482 off=-1757509425.638876 mapped=716885.447025
+[2025-09-19 04:11:50] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716885.447025 (device=H10)
+[2025-09-19 04:11:50] INFO     physico:360 | [BRIDGE-RECV] host_ts=716885.262282 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 't_device', 'n', 'device']
+[2025-09-19 04:11:51] INFO     physico:360 | [BRIDGE-RECV] host_ts=716885.835543 type=ecg payload_keys=['t_device', 'n', 'fs', 'type', 'uV', 'seq', 'device']
+[2025-09-19 04:11:51] INFO     physico:360 | [BRIDGE-RECV] host_ts=716886.253779 type=rr payload_keys=['seq', 'ms', 'device', 'type', 't_device', 'te']
+[2025-09-19 04:11:51] INFO     physico:81 | [ClockSync] map_event_ts t_device=1758226311.892965 te=1758226311.9449008 ts_arrival=716886.253779 off=-1757509425.638891 mapped=716886.306009
+[2025-09-19 04:11:51] INFO     physico:170 | [PARSER-RR] mapped RR -> ts_host=716886.306009 (device=H10)
+[2025-09-19 04:11:51] INFO     physico:360 | [BRIDGE-RECV] host_ts=716886.374596 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 'n', 't_device', 'device']
+[2025-09-19 04:11:52] INFO     physico:360 | [BRIDGE-RECV] host_ts=716886.945199 type=ecg payload_keys=['fs', 'seq', 'uV', 'type', 'n', 't_device', 'device']
+[2025-09-19 04:11:52] INFO     physico:307 | [MARK #2] ('192.168.1.104', 58441) -> stop
