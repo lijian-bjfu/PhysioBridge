@@ -106,6 +106,12 @@ final class PolarManager: NSObject, ObservableObject {
     private var seqVACC: UInt64 = 0
     private var seqPPI: UInt64 = 0
 
+    // RR 对齐器复位标记：每台设备只在会话首批 RR 复位一次
+    private var rrAlignerReset: Set<String> = []
+
+    // PPI 对齐器复位标记：每台设备只在会话首批 PPI 复位一次
+    private var ppiAlignerReset: Set<String> = []
+
     // PPG fs 记录（选择后缓存）
     private var ppgFsSelected: Int = 0
     private var ecgFsSelected: Int = 0
@@ -654,7 +660,9 @@ final class PolarManager: NSObject, ObservableObject {
         lossWindows.removeAll()
         loss60sByDeviceAndKind.removeAll()
 
-        
+        rrAlignerReset.removeAll()
+        ppiAlignerReset.removeAll()
+
         log("STREAM", "stopAllStreams")
     }
     
@@ -818,6 +826,12 @@ final class PolarManager: NSObject, ObservableObject {
                 // 2) RR：展开每个间期成单事件
                 if chosen.contains(.rr) {
                     let rrs = batch.flatMap { $0.rrsMs }
+                    // 首批 RR 到达时复位对齐器（每台设备一次），避免跨会话残留
+                    if !self.rrAlignerReset.contains(id) {
+                        BeatEventAligner.shared.reset(stream: .rr, deviceId: id)
+                        self.rrAlignerReset.insert(id)
+                        self.vlog("RR", "BeatEventAligner.reset(.rr) @\(id.prefix(4))")
+                    }
                     let events = BeatEventAligner.shared.alignRRBatch(deviceId: id, rrsMs: rrs, tHost: tHost)
                     for (rr, te) in zip(rrs, events) {
                         self.lastRrMs.append(rr)
@@ -826,7 +840,6 @@ final class PolarManager: NSObject, ObservableObject {
                         self.vlog("Time check RR", "seq=\(self.seqRR) ms=\(rr) t_host=\(String(format: "%.6f", tHost))")
                         self.sendPacket(prr)
                         self.vlog("RR", "\(devLabel) start \(rr)")
-                        
                     }
                 }
             }, onError: { [weak self] err in
@@ -837,11 +850,13 @@ final class PolarManager: NSObject, ObservableObject {
     private func stopHr(id: String) {
         hrDisposableById[id]?.dispose()
         hrDisposableById[id] = nil
+        rrAlignerReset.remove(id)
     }
 
     private func stopHrAll() {
         for (id, d) in hrDisposableById { d.dispose(); hrDisposableById[id] = nil }
         hrDisposableById.removeAll()
+        rrAlignerReset.removeAll()
     }
     
     // MARK: startECG
@@ -1111,6 +1126,13 @@ final class PolarManager: NSObject, ObservableObject {
                     let tHost = Date().timeIntervalSince1970
                     let dev = self.deviceLabel(for: deviceId)
                     
+                    // 首批 PPI 到达时复位对齐器（每台设备一次），避免跨会话残留
+                    if !self.ppiAlignerReset.contains(deviceId) {
+                        BeatEventAligner.shared.reset(stream: .ppi, deviceId: deviceId)
+                        self.ppiAlignerReset.insert(deviceId)
+                        self.vlog("PPI", "BeatEventAligner.reset(.ppi) @\(deviceId.prefix(4))")
+                    }
+
                     for s in ppi.samples {
                         self.seqPPI &+= 1
                         let te = BeatEventAligner.shared.alignPPI(deviceId: deviceId, ms: Int(s.ppInMs), tHost: tHost)
@@ -1148,6 +1170,9 @@ final class PolarManager: NSObject, ObservableObject {
 
         // 2) 更新内部状态：该设备的 .vacc 已不再处于“启用中”
         activeStreamsByDevice[deviceId]?.remove(.ppi)
+
+        // 清理 PPI 对齐器复位标记
+        ppiAlignerReset.remove(deviceId)
 
         // 3) 清理丢包统计/缓存
         clearLoss(deviceId: deviceId, kind: .ppi)
@@ -1390,6 +1415,8 @@ extension PolarManager: PolarBleApiObserver {
         stopHr(id: id)
         activeStreamsByDevice[id] = nil
         selectedKindsByDevice[id] = nil
+        rrAlignerReset.remove(id)
+        ppiAlignerReset.remove(id)
 
         let n = identifier.name.lowercased()
         if n.contains("h10") {
