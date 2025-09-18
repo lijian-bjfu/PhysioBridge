@@ -1,0 +1,39 @@
+{
+  "session": "S20250918-095043",
+  "started_at": "2025-09-18 09:50:43",
+  "streams": [
+    {
+      "file": "HB_Respiration_HKH__HKH_Devi.parquet",
+      "name": "HB_Respiration_HKH",
+      "type": "RESPIRATION",
+      "source_id": "HKH_Device",
+      "channel_count": 1,
+      "nominal_srate": 50.0,
+      "channel_format": 5,
+      "manufacturer": "",
+      "session": ""
+    },
+    {
+      "file": "PB_UDP__pb_udp_S.parquet",
+      "name": "PB_UDP",
+      "type": "UDP_TEXT",
+      "source_id": "pb_udp_S20250918-095043-5bd2_1c8c3152",
+      "channel_count": 1,
+      "nominal_srate": 0.0,
+      "channel_format": 3,
+      "manufacturer": "",
+      "session": ""
+    },
+    {
+      "file": "PB_MARKERS__pb_marke.parquet",
+      "name": "PB_MARKERS",
+      "type": "MARKERS",
+      "source_id": "pb_markers_S20250918-095043-5bd2_df036734",
+      "channel_count": 1,
+      "nominal_srate": 0.0,
+      "channel_format": 3,
+      "manufacturer": "",
+      "session": ""
+    }
+  ]
+}
