@@ -256,15 +256,15 @@ Polar 的 SDK 有一个容易忽略但对实验至关重要的差异：ECG/PPG/A
 
 ## 采集流程
 
-1. **启动桥接**：运行 `bridge_hub.py`。终端会显示会话 ID、UDP 监听（默认本机 IPv4:端口）、已加载翻译器与日志目录：`UDP2LSL/logs/<会话>/metrics.jsonl`。
+1. **启动桥接**：运行 `bridge_hub_launcher.py`。脚本会统一调用 polar 设备与呼吸带设备的lsl进程。终端会显示会话 ID、UDP 监听（默认本机 IPv4:端口）、已加载翻译器与日志目录：`UDP2LSL/logs/<会话>/metrics.jsonl`。
     
 2. **（可选）启动镜像**：另开终端（或在编辑器新控制台）运行 `lsl_mirror.py`。它会自动发现当前 LSL 流，并实时写入 `UDP2LSL/Data/mirror_lsl_data/<会话>/`。按 **ESC** 停止镜像。
     
-3. **手机端设置**：在 App 的设置页填入电脑 IPv4 与端口（与 `bridge_hub.py` 一致）。
+3. **手机端设置**：确保App与录制电脑在同一网络下。在 App 的设置页填入电脑 IPv4 与端口（可查看电脑端wifi ip 地址）。
     
 4. **连接设备与选择信号**：在 App 连接 H10/Verity，勾选需要的 ECG/ACC/PPG/HR/RR/PPI。提示：Verity 的 PPI 通常在开始后十几秒才出现。
     
-5. **LabRecorder 录制**：打开 LabRecorder，看到 `PB_*` 数值流与 `PB_MARKERS` 后点击 **Start**。若提示离线流，先让手机开始 2–3 秒再刷新选择。
+5. **LabRecorder 录制**：打开 LabRecorder.exe，看到 `PB_*` 数值流与 `PB_MARKERS` 后点击 **Start**。若提示离线流，先让手机开始 2–3 秒再刷新选择。
     
 6. **打标与结束**：在 App 打 baseline/诱导/干预等标记。结束顺序建议：先手机端停止采集，再 LabRecorder **Stop**，最后在镜像终端按 **ESC** 停止（若开启了镜像）。
     
@@ -287,7 +287,7 @@ Polar 的 SDK 有一个容易忽略但对实验至关重要的差异：ECG/PPG/A
 ## 数据检查
 
 1）**结构体检（录到“对的流、对的参数”）**  
-`polar_check_xdf.py` 打开 `.xdf`，列出各流 name/type/通道/采样率/样本量/时长，对期望流逐项 PASS/WARN/FAIL。典型提醒：仅见 `PB_UDP/PB_MARKERS` 表示手机未开始或 PPI 慢启动；采样率异常请核查设备与 PM 日志。
+`check_xdf.py` 打开 `.xdf`，列出各流 name/type/通道/采样率/样本量/时长，对期望流逐项 PASS/WARN/FAIL。典型提醒：仅见 `PB_UDP/PB_MARKERS` 表示手机未开始或 PPI 慢启动；采样率异常请核查设备与 PM 日志。
 
 2）**CSV 导出（标准列与单位）**  
 `xdf_to_csv.py` 将 XDF 导出到 `UDP2LSL/Data/main_lsl_data/<会话>/`，并生成文字说明。列规范：
@@ -302,7 +302,7 @@ Polar 的 SDK 有一个容易忽略但对实验至关重要的差异：ECG/PPG/A
     
 
 3）**内容体检（图与自动判级，可选）**  
-`polar_data_plot_validity.py` 输出 HR↔RR/PPI 叠加、PPG 连续性与一致性、ACC 活动指数、Poincaré/Tachogram 等，并给出 PASS/WARN/FAIL。
+`data_plot_validity.py` 输出 HR↔RR/PPI 叠加、PPG 连续性与一致性、ACC 活动指数、Poincaré/Tachogram 等，并给出 PASS/WARN/FAIL。
 
 4）**镜像一致性（可选，主线与镜像对比）**
 
