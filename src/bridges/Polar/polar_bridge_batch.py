@@ -397,7 +397,7 @@ def main():
                     print(json.dumps(hb, ensure_ascii=False), flush=True)
                     if _FIRST_RR_HOST_TS is not None and _FIRST_ECG_HOST_TS is not None:
                         delta_s = _FIRST_ECG_HOST_TS - _FIRST_RR_HOST_TS
-                        print(f"  ⏱ 首包差(ECG-host − RR-host) ≈ {delta_s:+.3f}s  | 缺字段: t_device={_MISSING_T_DEVICE}, te={_MISSING_TE}", flush=True)
+                        print(f" 首包差(ECG-host-RR-host) ≈ {delta_s:+.3f}s  | 缺字段: t_device={_MISSING_T_DEVICE}, te={_MISSING_TE}", flush=True)
 
                     if not UNDER_HUB:
                         print(f"[SUMMARY] text={cnt_text} markers={cnt_mark} handled={cnt_handled} unknown={cnt_unknown} errors={cnt_errors}", flush=True)
