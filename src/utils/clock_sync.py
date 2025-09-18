@@ -8,6 +8,7 @@ Libs/clock_sync.py
 
 from typing import Optional, Dict
 from pylsl import local_clock
+from logger import logger
 
 
 class _OffsetEWMA:
@@ -24,9 +25,17 @@ class _OffsetEWMA:
             if abs(delta) > self.clamp:
                 sample_offset = self.offset + (self.clamp if delta > 0 else -self.clamp)
             self.offset = (1 - self.alpha) * self.offset + self.alpha * sample_offset
+
+            # debug：仅打印显著变化或首次
+            if abs(self.offset - old) > 0.5:   # 超过0.5s大跳
+                logger.info(f"[ClockSync] update(): sample_offset={sample_offset:.6f} old={old:.6f} new={self.offset:.6f} (clamped_delta={delta:.6f})")
+
         else:
             self.offset = sample_offset
             self.inited = True
+
+            logger.info(f"[ClockSync] init offset={self.offset:.6f}")
+
         return self.offset
 
     def estimate(self) -> float:
@@ -68,6 +77,11 @@ class ClockSync:
         ts_arrival = float(ts_arrival) if ts_arrival is not None else local_clock()
         if t_device is not None:
             off = self._get(device).update(ts_arrival - float(t_device))
+
+            # debug: rr更新后的细节
+            mapped = float(te) + off if te is not None else float(t_device) + off
+            logger.info(f"[ClockSync] map_event_ts t_device={t_device:.6f} te={te} ts_arrival={ts_arrival:.6f} off={off:.6f} mapped={mapped:.6f}")
+
             if te is not None:
                 return float(te) + off
             return float(t_device) + off

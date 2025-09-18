@@ -823,9 +823,10 @@ final class PolarManager: NSObject, ObservableObject {
                         self.lastRrMs.append(rr)
                         self.seqRR &+= 1
                         let prr = RRPacket(device: devLabel, t_device: tHost, seq: self.seqRR, ms: rr, te: te)
+                        self.vlog("Time check RR", "seq=\(self.seqRR) ms=\(rr) t_host=\(String(format: "%.6f", tHost))")
                         self.sendPacket(prr)
                         self.vlog("RR", "\(devLabel) start \(rr)")
-                        //Task { @MainActor in AppStore.shared.markSent() }
+                        
                     }
                 }
             }, onError: { [weak self] err in
@@ -900,6 +901,12 @@ final class PolarManager: NSObject, ObservableObject {
                     let t = Date().timeIntervalSince1970
                     let uV = ecg.map { Int($0.voltage) }
                     
+                    // 打印 发出 ecg 的时间
+                    self.vlog("Time check ECG", "send ECG batch t_host=\(String(format: "%.6f", t)) n=\(uV.count)")
+                    // 如果发送了 baseTime 版本，也打印
+                    // e.g. inside FeatureFlags.cappedTxEnabled branch after sendECGCapped 调用：
+                    // self.vlog("Time check ECG", "capped send ECG baseTime = \(String(format: "%.6f", t)) n=\(uV.count)")
+                
                     if FeatureFlags.cappedTxEnabled {
                         self.sendECGCapped(
                             devLabel: dev,

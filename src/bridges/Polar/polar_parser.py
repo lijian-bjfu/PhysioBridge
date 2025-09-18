@@ -35,6 +35,7 @@ from src.utils.paths import MIRROR_DATA_DIR
 from src.utils.lsl_registry import LSLRegistry
 from src.utils.clock_sync import ClockSync
 from src.utils.json_guard import f, rows_as_float
+from logger import logger
 
 
 def handle(obj: Dict[str, Any], host_ts: float, registry: LSLRegistry, clock: ClockSync) -> bool:
@@ -79,8 +80,6 @@ def handle(obj: Dict[str, Any], host_ts: float, registry: LSLRegistry, clock: Cl
             (float(te) if te is not None else float("nan"))], 
             timestamp=ts_lsl)
         return True
-
-
 
     # 事件流：HR（bpm 单值）
     if typ == "hr":
@@ -141,7 +140,15 @@ def handle(obj: Dict[str, Any], host_ts: float, registry: LSLRegistry, clock: Cl
         ms = f(obj.get("ms"))
         if ms is None:
             return False
+
+        # debug: 打印收到的原始时间字段与 host_ts
+        logger.info(f"[PARSER-RR] recv RR device={device} ms={ms} t_device={t_dev} te={te} host_ts={host_ts:.6f}")
+
         ts = clock.map_event_ts(device, t_dev, te, host_ts)
+
+        # debug: 打印映射后的 host timestamp
+        logger.info(f"[PARSER-RR] mapped RR -> ts_host={ts:.6f} (device={device})")
+        
         out = registry.ensure("rr", device, channels=2, srate=0.0, units="ms,te")
         out.push_sample([ms, (float(te) if te is not None else float("nan"))], timestamp=ts)
         return True

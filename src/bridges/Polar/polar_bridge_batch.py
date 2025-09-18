@@ -22,6 +22,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 # 从我们统一的路径管理器中导入所有需要的数据路径
 from paths import RECORDER_DATA_DIR
+from logger import logger
 
 # =============================================================================
 
@@ -291,7 +292,7 @@ def main():
                         label = raw_label if isinstance(raw_label, str) and raw_label.strip() else "unknown"
                         outlet_mark.push_sample([label], timestamp=ts_host)
                         cnt_mark += 1
-                        print(f"[MARK #{cnt_mark}] {addr} -> {label}")
+                        logger.info(f"[MARK #{cnt_mark}] {addr} -> {label}")
                         routed_marker = True
                 except Exception:
                     obj = None  # 不是 JSON，就让 obj 为 None
@@ -322,6 +323,7 @@ def main():
                 # 翻译器：仅当 obj 是 dict 时尝试解析与产出数值型 LSL
                 if isinstance(obj, dict) and not routed_marker:
                     # 翻译器：仅当 obj 是 dict 时尝试解析与产出数值型 LSL
+                    logger.info(f"[BRIDGE-RECV] host_ts={ts_host:.6f} type={obj.get('type')} payload_keys={list(obj.keys())}")
                     handled = False
                     for handler in translators:
                         try:

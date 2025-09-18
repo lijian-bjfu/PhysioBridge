@@ -53,6 +53,13 @@ final class BeatEventAligner {
         if let last = st.lastEventTime {
             // 有历史：按 rr 依次前推
             var t = last
+            
+            // >>> DEBUG: show total and first step
+            #if DEBUG
+            let total = rrsMs.reduce(0, +)
+            print("[BEATALIGN][HIST] lastEvent=\(String(format:"%.6f", last)) totalMs=\(total)ms")
+            #endif
+            
             for ms in rrsMs {
                 t += TimeInterval(ms) / 1000.0
                 times.append(t)
@@ -62,12 +69,45 @@ final class BeatEventAligner {
             // 无历史：以“本批总时长回溯到 tHost”为锚
             let total = rrsMs.reduce(0, +)
             var t = tHost - TimeInterval(total) / 1000.0
+            
+            // >>> DEBUG: show anchor calculation
+            #if DEBUG
+            print("[BEATALIGN][NEW ] tHost=\(String(format:"%.6f", tHost)) totalMs=\(total)ms anchorStart=\(String(format:"%.6f", t))")
+            #endif
+            
             for ms in rrsMs {
                 t += TimeInterval(ms) / 1000.0
                 times.append(t)
             }
+            
+            // >>> DEBUG: after building times (new series)
+            #if DEBUG
+            print("[BEATALIGN][NEW ] first=\(String(format: "%.6f", times.first!)) last=\(String(format:"%.6f", times.last!))")
+            #endif
+            
             st.lastEventTime = times.last
         }
+        
+        // >>> DEBUG: show st update and detect big jumps
+        #if DEBUG
+        let updated = st.lastEventTime ?? 0.0
+        print("[BEATALIGN][OUT ] updated_lastEvent=\(String(format:"%.6f", updated))")
+        // detect large jump relative to tHost or relative to previous last if existed
+        if let prev = series[k]?.lastEventTime {
+            let jump = updated - prev
+            if abs(jump) > 5.0 {
+                print("[BEATALIGN][WARN] large_jump=\(String(format: "%.3f", jump))s (prev=\(String(format:"%.6f", prev)), new=\(String(format:"%.6f", updated)))")
+            }
+        } else {
+            // also compare updated with tHost: if times.last is far from tHost (>> 1s), warn
+            let delta = updated - tHost
+            if abs(delta) > 5.0 {
+                print("[BEATALIGN][WARN] astEvent (\(String(format:"%.6f", updated))) is \(String(format:"%.1f", delta))s away from tHost (\(String(format:"%.6f", tHost))).")
+            }
+        }
+        #endif
+        
+        
         series[k] = st
         return times
     }
