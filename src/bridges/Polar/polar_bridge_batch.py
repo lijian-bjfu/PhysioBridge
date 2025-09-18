@@ -38,14 +38,6 @@ import select  # 为 ESC 轮询读取 stdin
 # ========== 第三方库依赖 ==========
 from pylsl import StreamInfo, StreamOutlet, local_clock
 
-# ========= 诊断用：首包与缺字段计数（最小侵入） =========
-_FIRST_RR_SEEN = False
-_FIRST_ECG_SEEN = False
-_FIRST_RR_HOST_TS = None
-_FIRST_ECG_HOST_TS = None
-_MISSING_T_DEVICE = 0
-_MISSING_TE = 0
-
 # ========== 本项目内部依赖 (使用绝对路径) ==========
 # 从当前文件位置 (__file__) 出发，向上寻找项目根目录
 # 我们需要向上走3层 (polar -> bridges -> src) 才能到达 PhysioBridge/ 这个根目录
@@ -167,6 +159,16 @@ class EscWatcher:
 
 
 def main():
+
+    # ========= 诊断用：首包与缺字段计数（最小侵入） =========
+    global _MISSING_T_DEVICE, _MISSING_TE, _FIRST_RR_SEEN, _FIRST_ECG_SEEN, _FIRST_RR_HOST_TS, _FIRST_ECG_HOST_TS
+    _FIRST_RR_SEEN = False
+    _FIRST_ECG_SEEN = False
+    _FIRST_RR_HOST_TS = None
+    _FIRST_ECG_HOST_TS = None
+    _MISSING_T_DEVICE = 0
+    _MISSING_TE = 0
+
     # 注册新号
     # 信号处理与参数
     signal.signal(signal.SIGINT, _sig_handler)
