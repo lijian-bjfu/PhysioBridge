@@ -38,6 +38,14 @@ import select  # 为 ESC 轮询读取 stdin
 # ========== 第三方库依赖 ==========
 from pylsl import StreamInfo, StreamOutlet, local_clock
 
+# ========= 诊断用：首包与缺字段计数（最小侵入） =========
+_FIRST_RR_SEEN = False
+_FIRST_ECG_SEEN = False
+_FIRST_RR_HOST_TS = None
+_FIRST_ECG_HOST_TS = None
+_MISSING_T_DEVICE = 0
+_MISSING_TE = 0
+
 # ========== 本项目内部依赖 (使用绝对路径) ==========
 # 从当前文件位置 (__file__) 出发，向上寻找项目根目录
 # 我们需要向上走3层 (polar -> bridges -> src) 才能到达 PhysioBridge/ 这个根目录
@@ -183,6 +191,8 @@ def main():
     session_id = CONFIG.get("SESSION", time.strftime("S%Y%m%d-%H%M%S"))
     session_dir = RECORDER_DATA_DIR /  "logs" / session_id
     session_dir.mkdir(parents=True, exist_ok=True)
+    logger.info("[SESSION] host=%s pid=%s lsl_now=%.6f unix_now=%.3f session=%s",
+                socket.gethostname(), os.getpid(), local_clock(), time.time(), session_id)
     print(f"[*] 本次会話數據與日誌將保存至: {session_dir}")
 
     # 设置日志与 metrics 文件路径，保存在新的会话目录中
@@ -303,6 +313,28 @@ def main():
 
                 # 接受来自手机的 pong 包: 若是 JSON，做两件事：更新设备->地址；喂给 metrics 与 ping-pong
                 if isinstance(obj, dict):
+                    # ---- 首包与缺字段计数（仅 RR/ECG 参与） ----
+                    try:
+                        typ0 = obj.get("type")
+                        if typ0 == "rr":
+                            if "t_device" not in obj:
+                                _MISSING_T_DEVICE += 1
+                            if "te" not in obj:
+                                _MISSING_TE += 1
+                            if not _FIRST_RR_SEEN:
+                                _FIRST_RR_SEEN = True
+                                _FIRST_RR_HOST_TS = ts_host
+                                logger.info("[FIRST-RR] host_ts=%.6f keys=%s t_device=%s te=%s",
+                                            ts_host, sorted(list(obj.keys())),
+                                            obj.get("t_device"), obj.get("te"))
+                        elif typ0 == "ecg":
+                            if not _FIRST_ECG_SEEN:
+                                _FIRST_ECG_SEEN = True
+                                _FIRST_ECG_HOST_TS = ts_host
+                                logger.info("[FIRST-ECG] host_ts=%.6f keys=%s", ts_host, sorted(list(obj.keys())))
+                    except Exception:
+                        pass
+
                     # 1) 记录设备地址（用于单播 ping），device 字段名按你 Swift 的包体来
                     typ = obj.get("type")
                     dev = obj.get("device") or obj.get("deviceLabel") or obj.get("deviceId")
@@ -343,15 +375,27 @@ def main():
                 if now - t0 >= CONFIG["SUMMARY_EVERY"]:
                     
                     hb = {
-                        "hb":"polar",
+                        "hb": "polar",
                         "udp_pkts": cnt_text,
                         "handled":  cnt_handled,
                         "unknown":  cnt_unknown,
                         "errors":   cnt_errors,
                         "udp_loss": metrics.snapshot(),
-                        "lat_avg_ms": round(clock.avg_latency_ms(), 1) if hasattr(clock,"avg_latency_ms") else 0
+                        "lat_avg_ms": round(clock.avg_latency_ms(), 1) if hasattr(clock, "avg_latency_ms") else 0,
+                        "missing_t_device": _MISSING_T_DEVICE,
+                        "missing_te": _MISSING_TE,
+                        "first_rr_host": _FIRST_RR_HOST_TS,
+                        "first_ecg_host": _FIRST_ECG_HOST_TS,
+                        "first_ecg_minus_rr_s": (
+                            (float(_FIRST_ECG_HOST_TS) - float(_FIRST_RR_HOST_TS))
+                            if (_FIRST_ECG_HOST_TS is not None and _FIRST_RR_HOST_TS is not None)
+                            else None
+                        )
                     }
                     print(json.dumps(hb, ensure_ascii=False), flush=True)
+                    if _FIRST_RR_HOST_TS is not None and _FIRST_ECG_HOST_TS is not None:
+                        delta_s = _FIRST_ECG_HOST_TS - _FIRST_RR_HOST_TS
+                        print(f"  ⏱ 首包差(ECG-host − RR-host) ≈ {delta_s:+.3f}s  | 缺字段: t_device={_MISSING_T_DEVICE}, te={_MISSING_TE}", flush=True)
 
                     if not UNDER_HUB:
                         print(f"[SUMMARY] text={cnt_text} markers={cnt_mark} handled={cnt_handled} unknown={cnt_unknown} errors={cnt_errors}", flush=True)

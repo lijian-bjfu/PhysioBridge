@@ -23,6 +23,8 @@ class _OffsetEWMA:
         if self.inited:
             delta = sample_offset - self.offset
             if abs(delta) > self.clamp:
+                logger.warning("[ClockSync] clamp delta=%.3f -> clamp=%.3f (sample_offset=%.6f, prev=%.6f)",
+                   delta, self.clamp, sample_offset, self.offset)
                 sample_offset = self.offset + (self.clamp if delta > 0 else -self.clamp)
             self.offset = (1 - self.alpha) * self.offset + self.alpha * sample_offset
 

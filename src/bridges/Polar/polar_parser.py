@@ -37,6 +37,12 @@ from src.utils.clock_sync import ClockSync
 from src.utils.json_guard import f, rows_as_float
 from logger import logger
 
+# --- minimal diagnostics (once & counters) ---
+_seen_ecg = False
+_seen_rr  = False
+_miss_tdev = 0
+_miss_te   = 0
+# --------------------------------------------
 
 def handle(obj: Dict[str, Any], host_ts: float, registry: LSLRegistry, clock: ClockSync) -> bool:
     typ = obj.get("type")
@@ -101,6 +107,13 @@ def handle(obj: Dict[str, Any], host_ts: float, registry: LSLRegistry, clock: Cl
         if not rows:
             return False
         out = registry.ensure("ecg", device, channels=1, srate=fs, units="uV")
+
+        # debug
+        global _seen_ecg
+        if not _seen_ecg:
+            logger.info(f"[PARSER-ECG-FIRST] device={device} fs={fs}Hz batch_n={len(rows)} host_ts={host_ts:.6f}")
+            _seen_ecg = True
+
         out.push_chunk(rows)  # v1：不附带逐样本时间戳
         return True
 
@@ -142,7 +155,14 @@ def handle(obj: Dict[str, Any], host_ts: float, registry: LSLRegistry, clock: Cl
             return False
 
         # debug: 打印收到的原始时间字段与 host_ts
-        logger.info(f"[PARSER-RR] recv RR device={device} ms={ms} t_device={t_dev} te={te} host_ts={host_ts:.6f}")
+        # logger.info(f"[PARSER-RR] recv RR device={device} ms={ms} t_device={t_dev} te={te} host_ts={host_ts:.6f}")
+        global _seen_rr, _miss_tdev, _miss_te
+        if t_dev is None: _miss_tdev += 1
+        if te    is None: _miss_te   += 1
+        if not _seen_rr:
+            logger.info(f"[PARSER-RR-FIRST] device={device} host_ts={host_ts:.6f} t_device={t_dev} te={te} "
+                        f"miss_counts(t_device={_miss_tdev}, te={_miss_te})")
+            _seen_rr = True
 
         ts = clock.map_event_ts(device, t_dev, te, host_ts)
 
