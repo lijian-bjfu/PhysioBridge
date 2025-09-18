@@ -824,7 +824,7 @@ final class PolarManager: NSObject, ObservableObject {
                         self.seqRR &+= 1
                         let prr = RRPacket(device: devLabel, t_device: tHost, seq: self.seqRR, ms: rr, te: te)
                         self.sendPacket(prr)
-                        self.vlog("RR", "\(devLabel) start")
+                        self.vlog("RR", "\(devLabel) start \(rr)")
                         //Task { @MainActor in AppStore.shared.markSent() }
                     }
                 }
