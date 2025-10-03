@@ -518,9 +518,13 @@ final class AppStore: ObservableObject {
         print("[Store] marker +=1 -> \(markerCount) label=\(label.rawValue)")
     }
     func canEmit(_ label: MarkerLabel) -> Bool {
-        if label == .stop {return isCollecting }
-        if label == .custom_events { return true }
-        return isCollecting && (markerAllowedNext == label)
+        guard isCollecting else { return false }
+        switch label {
+        case .custom_events, .stop:
+            return true                    // 采集中随时放行
+        default:
+            return markerAllowedNext == label
+        }
     }
     func emitMarkerInOrder(_ label: MarkerLabel) {
         guard canEmit(label) else {
