@@ -520,7 +520,7 @@ final class AppStore: ObservableObject {
     func canEmit(_ label: MarkerLabel) -> Bool {
         guard isCollecting else { return false }
         switch label {
-        case .custom_events, .stop:
+        case .custom_event, .stop:
             return true                    // 采集中随时放行
         default:
             return markerAllowedNext == label
@@ -553,13 +553,13 @@ final class AppStore: ObservableObject {
             if let t0 = intervStart { intervAccum += now.timeIntervalSince(t0); intervStart = nil }
         case .stop:
             break
-        case .custom_events:
+        case .custom_event:
             customEvents.append(now)
         }
         emitMarker(label)
         
         // 自定义事件标记不参与推进阶段序号，也不改变当前active
-        if label != .custom_events {
+        if label != .custom_event {
             markerStep += 1
         }
     }

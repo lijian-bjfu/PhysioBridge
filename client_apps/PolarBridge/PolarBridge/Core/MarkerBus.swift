@@ -15,7 +15,7 @@ enum MarkerLabel: String, Codable {
     case intervention_start
     case intervention_end
     case stop
-    case custom_events
+    case custom_event
 }
 
 struct MarkerEvent: Codable {

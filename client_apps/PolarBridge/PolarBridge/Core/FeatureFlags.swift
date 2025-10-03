@@ -79,3 +79,4 @@ enum FeatureFlags {
         NotificationCenter.default.post(name: didChange, object: nil)
     }
 }
+
