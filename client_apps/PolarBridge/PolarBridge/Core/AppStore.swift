@@ -203,6 +203,8 @@ final class AppStore: ObservableObject {
     private var stimAccum: TimeInterval = 0
     private var intervStart: Date? = nil
     private var intervAccum: TimeInterval = 0
+    private var customEvents: [Date] = []
+    var customEventCount: Int { customEvents.count }
     // MARK: - debug
     private var verbose: Bool { FeatureFlags.consoleVerbose }
 
@@ -476,6 +478,7 @@ final class AppStore: ObservableObject {
         isCollecting = true
 
         markerStep = -1
+        customEvents.removeAll()
         baselineStart = nil; baselineAccum = 0
         stimStart     = nil; stimAccum     = 0
         intervStart   = nil; intervAccum   = 0
@@ -516,6 +519,7 @@ final class AppStore: ObservableObject {
     }
     func canEmit(_ label: MarkerLabel) -> Bool {
         if label == .stop {return isCollecting }
+        if label == .custom_events { return true }
         return isCollecting && (markerAllowedNext == label)
     }
     func emitMarkerInOrder(_ label: MarkerLabel) {
@@ -545,9 +549,15 @@ final class AppStore: ObservableObject {
             if let t0 = intervStart { intervAccum += now.timeIntervalSince(t0); intervStart = nil }
         case .stop:
             break
+        case .custom_events:
+            customEvents.append(now)
         }
         emitMarker(label)
-        markerStep += 1
+        
+        // 自定义事件标记不参与推进阶段序号，也不改变当前active
+        if label != .custom_events {
+            markerStep += 1
+        }
     }
     // MARK: - 更新被试信息
     func applyParticipant(pid: String, sessionID: String, broadcast: Bool = true) {

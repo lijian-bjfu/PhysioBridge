@@ -12,7 +12,8 @@ private let kMarkerSpecs: [MarkerSpec] = [
     .init(label: .stim_start,         icon: "play.fill",      title: "诱导开始"),
     .init(label: .stim_end,           icon: "stop.fill",      title: "诱导结束"),
     .init(label: .intervention_start, icon: "bolt.fill",      title: "干预开始"),
-    .init(label: .intervention_end,   icon: "bolt.slash.fill",title: "干预结束")
+    .init(label: .intervention_end,   icon: "bolt.slash.fill",title: "干预结束"),
+    .init(label: .custom_events,      icon: "tag",             title: "自定事件")
 ]
 
 
@@ -190,10 +191,11 @@ struct CollectView: View {
                         .frame(maxWidth: .infinity, minHeight: 54)  // 固定高度，保证布局稳定
 
                         // 3) 标记按钮条：五等分网格，与上方对齐
-                        let markerColumns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 5)
+                        let markerColumns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 3)
                         LazyVGrid(columns: markerColumns, alignment: .center, spacing: 8) {
                             ForEach(kMarkerSpecs) { spec in
-                                let enabled  = isCollecting && (store.markerAllowedNext == spec.label)
+                                let isCustom = (spec.label == .custom_events)
+                                let enabled  = isCollecting && (isCustom || store.markerAllowedNext == spec.label)
                                 let isActive = (store.markerActive == spec.label)
 
                                 // 统一按钮内容
