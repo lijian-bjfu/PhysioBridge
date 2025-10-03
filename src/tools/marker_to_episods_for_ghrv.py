@@ -3,6 +3,8 @@
 """
 marker_to_episodes.py
 ---------------------
+用于将markers.csv转换为gHRV可读的episodes.txt
+
 Convert an LSL marker CSV (columns: time_lsl,label) into a gHRV-compatible
 episodes text file with three columns (whitespace-separated):
 
