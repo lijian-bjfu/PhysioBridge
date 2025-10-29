@@ -197,6 +197,11 @@ final class AppStore: ObservableObject {
         let next = markerStep + 1
         return (next < markerSequence.count) ? markerSequence[next] : nil
     }
+    // 自定义 marker 的存储与顺序引擎（仅持有）
+    let markerLists = MarkerListStore()
+    let markerSeq   = MarkerSequenceEngine()
+    
+    
     private var baselineStart: Date? = nil
     private var baselineAccum: TimeInterval = 0
     private var stimStart: Date? = nil
@@ -205,6 +210,8 @@ final class AppStore: ObservableObject {
     private var intervAccum: TimeInterval = 0
     private var customEvents: [Date] = []
     var customEventCount: Int { customEvents.count }
+    
+    
     // MARK: - debug
     private var verbose: Bool { FeatureFlags.consoleVerbose }
 
@@ -227,6 +234,28 @@ final class AppStore: ObservableObject {
             // 即使没有历史，也要把当前默认目标喂给 UDPSenderService
             UDPSenderService.shared.update(host: udpTarget.host, port: udpTarget.port)
         }
+        
+        // custom 标记管理 初始化
+        // 1) 启动时先绑定一次
+        markerSeq.bind(list: markerLists.selectedList)
+
+        // 2) 监听列表选择变化 → 重新绑定序列引擎
+        markerLists.$selectedListId
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                self.markerSeq.bind(list: self.markerLists.selectedList)
+            }
+            .store(in: &cancellables)
+        
+    }
+    // MARK: - 用户自定义事件接口
+    func triggerCustomMarker(index: Int) {
+        markerSeq.trigger(index: index)
+    }
+
+    func finishCurrentCustomMarker() {
+        markerSeq.finishCurrent()
     }
 
     // MARK: - Polar 绑定
@@ -520,8 +549,9 @@ final class AppStore: ObservableObject {
     func canEmit(_ label: MarkerLabel) -> Bool {
         guard isCollecting else { return false }
         switch label {
-        case .custom_event, .stop:
-            return true                    // 采集中随时放行
+        // TODO: 处理用户定义事件
+//        case .custom_event, .stop:
+//            return true                    // 采集中随时放行
         default:
             return markerAllowedNext == label
         }
@@ -553,15 +583,16 @@ final class AppStore: ObservableObject {
             if let t0 = intervStart { intervAccum += now.timeIntervalSince(t0); intervStart = nil }
         case .stop:
             break
-        case .custom_event:
-            customEvents.append(now)
+//        case .custom_event:
+//            customEvents.append(now)
         }
         emitMarker(label)
         
         // 自定义事件标记不参与推进阶段序号，也不改变当前active
-        if label != .custom_event {
-            markerStep += 1
-        }
+        // if label != .custom_event {
+        //     markerStep += 1
+        //}
+        markerStep += 1
     }
     // MARK: - 更新被试信息
     func applyParticipant(pid: String, sessionID: String, broadcast: Bool = true) {

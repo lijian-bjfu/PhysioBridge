@@ -34,6 +34,9 @@ final class ProgressLogViewModel: ObservableObject {
     private var rr_ms: Int?
     private var ppi_ms: Int?
     
+    // 按设备缓存 HR（原来数据为UInt8 统一转为 Int，便于显示/运算）
+    private var lastHrByDevice: [String: Int] = [:]
+    
     // 只显示用户选择的信号集合
     private var enabled: Set<SignalKind> = []
 
@@ -51,7 +54,7 @@ final class ProgressLogViewModel: ObservableObject {
         bind()
     }
     deinit {
-        timer?.cancel()    
+        timer?.cancel()
         bag.removeAll()
     }
 
@@ -87,14 +90,19 @@ final class ProgressLogViewModel: ObservableObject {
         pm.$lastECGuV
             .sink { [weak self] v in self?.ecg_uV = v }
             .store(in: &bag)
-
-        pm.$lastPPG1
-            .sink { [weak self] v in self?.ppg1_au = v }
+        
+        pm.$lastHrByDevice
+            .map { dict in dict.mapValues(Int.init) } // 转换元数据 UInt8 -> Int
+            .sink { [weak self] dict in self?.lastHrByDevice = dict }
             .store(in: &bag)
 
         pm.$lastRrMs
             .map { $0.last }
             .sink { [weak self] v in self?.rr_ms = v }
+            .store(in: &bag)
+        
+        pm.$lastPPG1
+            .sink { [weak self] v in self?.ppg1_au = v }
             .store(in: &bag)
 
         pm.$lastPpiMs
@@ -144,21 +152,38 @@ final class ProgressLogViewModel: ObservableObject {
         elapsedSec += intervalSec
         let t = ts(elapsedSec)
 
-        // 四行数据，carry-forward（无新值就用上次）
-        // 只显示用户正在采集的数据
+        // H10 / Verity 采样显示（合并 HR；ECG 暂时关闭）
+        // ECG（暂时关闭，保留代码以便后续恢复）
+        /*
         if want(.ecg) {
             append("[\(t)]  ECG   \(ecg_uV.map { "\($0) uV" } ?? "— uV")")
         }
-        if want(.ppg) {
-            append("[\(t)]  PPG1  \(ppg1_au.map { "\($0)" } ?? "—") a.u.")
-        }
+        */
+
+        // RR
         if want(.rr) {
             append("[\(t)]  RR    \(rr_ms.map { "\($0) ms" } ?? "— ms")")
         }
+
+        // HR（合并显示逻辑）：双设备时显示 H10；单设备时显示该设备；否则显示占位
+        let hrH10: Int? = pm.connectedH10Id.flatMap { lastHrByDevice[$0] }
+        let hrVerity: Int? = pm.connectedVerityId.flatMap { lastHrByDevice[$0] }
+        let primaryHR: Int? = hrH10 ?? hrVerity
+
+        if want(.hhr) || want(.vhr) {
+            let s = primaryHR.map { "\($0) bpm" } ?? "— bpm"
+            append("[\(t)]  HR         \(s)")
+        }
+
+        // PPI
         if want(.ppi) {
             append("[\(t)]  PPI   \(ppi_ms.map { "\($0) ms" } ?? "— ms")")
         }
-
+        // ppg
+        if want(.ppg) {
+            append("[\(t)]  PPG1  \(ppg1_au.map { "\($0)" } ?? "—") a.u.")
+        }
+        
         append(separator, dim: true)
         // 环形缓冲 200
         if lines.count > 200 { lines.removeFirst(lines.count - 200) }
@@ -174,7 +199,6 @@ final class ProgressLogViewModel: ObservableObject {
         case .intervention_start: return "干预_开始"
         case .intervention_end:   return "干预_结束"
         case .stop:               return "停止采集"
-        case .custom_event:       return "自定事件"
         }
     }
 

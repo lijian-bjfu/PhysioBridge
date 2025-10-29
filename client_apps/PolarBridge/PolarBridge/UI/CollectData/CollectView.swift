@@ -8,12 +8,11 @@ private struct MarkerSpec: Identifiable {
     let title: String
 }
 private let kMarkerSpecs: [MarkerSpec] = [
-    .init(label: .baseline_start,     icon: "flag",           title: "基线开始"),
-    .init(label: .stim_start,         icon: "play.fill",      title: "诱导开始"),
-    .init(label: .stim_end,           icon: "stop.fill",      title: "诱导结束"),
-    .init(label: .intervention_start, icon: "bolt.fill",      title: "干预开始"),
-    .init(label: .intervention_end,   icon: "bolt.slash.fill",title: "干预结束"),
-    .init(label: .custom_event,      icon: "tag",             title: "自定事件")
+    .init(label: .baseline_start,     icon: "flag",            title: "基线开始"),
+    .init(label: .stim_start,         icon: "play.fill",       title: "诱导开始"),
+    .init(label: .stim_end,           icon: "stop.fill",       title: "诱导结束"),
+    .init(label: .intervention_start, icon: "bolt.fill",       title: "干预开始"),
+    .init(label: .intervention_end,   icon: "bolt.slash.fill", title: "干预结束")
 ]
 
 
@@ -29,9 +28,18 @@ struct CollectView: View {
     // 用于驱动UI刷新，不参与实际计时
     @State private var displayTick: Int = 0
     @State private var uiTimer: Timer?
+    // 自定义事件输入面板
+    @State private var showSetCustomEventSheet: Bool = false
+    @State private var customEventNameInput: String = ""
+    @State private var showSaveListSheet: Bool = false
+    @State private var presetNameInput: String = ""
+    @State private var presetDescInput: String = ""
     
     // 根据设置页面（settingsView）判断是否显示"采集进度"卡片
     @AppStorage("feature.progressLog.enabled") private var progressLogEnabled: Bool = FeatureFlags.progressLogEnabled
+    
+    // 根据设置页面（settingsView）判断是否显示"数据波形图"卡片
+    @AppStorage("feature.wave.enabled") private var waveEnabled: Bool = FeatureFlags.waveEnabled
     
     // 需要以store初始化的ViewModel必须明确地使用主线程
     @StateObject private var progressVM: ProgressLogViewModel
@@ -41,6 +49,8 @@ struct CollectView: View {
             wrappedValue: ProgressLogViewModel(store: AppStore.shared)
         )
     }
+    // CollectView.swift 顶部
+    @StateObject private var waveVM = WaveViewModel(pm: PolarManager.shared)
 
     var body: some View {
         ScrollView {
@@ -148,6 +158,8 @@ struct CollectView: View {
                         Button {
                             withAnimation(.easeInOut(duration: 0.2)) {
                                 if isCollecting {
+                                    // 先结束自定义事件的计时，再停止采集
+                                    store.finishCurrentCustomMarker()
                                     store.stopCollect()     // 这里会把 isCollecting 置为 false
                                 } else {
                                     store.startCollect()    // 这里会把 isCollecting 置为 true
@@ -194,11 +206,9 @@ struct CollectView: View {
                         let markerColumns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 3)
                         LazyVGrid(columns: markerColumns, alignment: .center, spacing: 8) {
                             ForEach(kMarkerSpecs) { spec in
-                                let isCustom = (spec.label == .custom_event)
-                                let enabled  = isCollecting && (isCustom || store.markerAllowedNext == spec.label)
+                                let enabled  = isCollecting && (store.markerAllowedNext == spec.label)
                                 let isActive = (store.markerActive == spec.label)
 
-                                // 统一按钮内容
                                 let labelView = VStack(spacing: 4) {
                                     Image(systemName: spec.icon)
                                     Text(spec.title).font(.caption2)
@@ -217,6 +227,91 @@ struct CollectView: View {
                                         .disabled(!enabled)
                                 }
                             }
+                            // 第6个格子：添加事件（采集开始后禁用；开始前始终可用）
+                            Button {
+                                showSetCustomEventSheet = true
+                            } label: {
+                                VStack(spacing: 4) {
+                                    Image(systemName: "plus.square.on.square")
+                                    Text("添加事件").font(.caption2)
+                                }
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(.orange)          // 与固定标签区分的颜色
+                            .disabled(isCollecting) // 采集中禁用
+                        }
+                        // 3.1 自定义事件序列（仅展示当前选中列表中的条目）
+                        if let list = store.markerLists.selectedList {
+                            let items = list.items
+                            // 规则：只有“已连接设备 + 已选择数据 + 正在采集”时，才允许触发自定义事件
+                            let canActivateCustom = hasDevice && hasSelection && isCollecting
+                            let rowHeight: CGFloat = 60
+                            let listHeight: CGFloat = min(CGFloat(items.count) * rowHeight, 320)
+
+                            if !items.isEmpty {
+                                List {
+                                    ForEach(items.indices, id: \.self) { idx in
+                                        let item = items[idx]
+                                        let rowState = store.markerSeq.state(for: idx)
+                                        let rowEnabled = canActivateCustom && store.markerSeq.canTrigger(index: idx)
+
+                                        CustomEventRow(
+                                            title: item.displayName,
+                                            iconName: item.iconName ?? "tag",
+                                            state: rowState,
+                                            elapsed: {
+                                                let now = Date().timeIntervalSince1970
+                                                if let s = store.markerSeq.startedAt[idx], let e = store.markerSeq.endedAt[idx] {
+                                                    return max(0, e - s)
+                                                } else if rowState == .active, let s = store.markerSeq.startedAt[idx] {
+                                                    return max(0, now - s)
+                                                } else {
+                                                    return 0
+                                                }
+                                            }(),
+                                            onTap: {
+                                                guard rowEnabled else { return }
+                                                if store.markerSeq.canTrigger(index: idx) {
+                                                    store.triggerCustomMarker(index: idx)
+                                                }
+                                            },
+                                            onDelete: {
+                                                AppStore.shared.markerLists.removeItem(item.id, from: list.id)
+                                            }
+                                        )
+                                        .opacity(rowEnabled ? 1.0 : 0.5)
+                                        .listRowInsets(EdgeInsets())
+                                        .listRowSeparator(.hidden)
+                                        .listRowBackground(Color.clear)
+                                        .deleteDisabled(store.markerSeq.state(for: idx) == .active)
+                                        .frame(minHeight: rowHeight, alignment: .center)
+                                        .contentShape(Rectangle())  // 扩大可点击/滑动命中区域
+                                    }
+                                    .onDelete { offsets in
+                                        offsets.forEach { index in
+                                            let id = items[index].id
+                                            AppStore.shared.markerLists.removeItem(id, from: list.id)
+                                        }
+                                    }
+                                }
+                                .listStyle(.plain)
+                                .padding(.top, 8)
+                                // 为 List 提供明确的高度，避免 0 或矛盾约束
+                                .frame(height: listHeight)
+                                .scrollDisabled(false)   // 允许内部滚动，提升左滑识别
+
+                                // 3.2 保存设置按钮（当列表存在至少一条）
+                                Button {
+                                    showSaveListSheet = true
+                                } label: {
+                                    Text("保存设置")
+                                        .frame(maxWidth: .infinity, minHeight: 32)
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .controlSize(.large)
+                                .padding(.top, 8)
+                            }
                         }
                     }
                 }
@@ -229,6 +324,20 @@ struct CollectView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
 
                             ProgressLogView(viewModel: progressVM)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                }
+                // ───────── E. 数据波形 ─────────
+                if showWaveCard {
+                    SectionCard {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("实时信号")
+                                .font(.title3.weight(.bold))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+
+                            WaveView(model: waveVM)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -251,6 +360,44 @@ struct CollectView: View {
             uiTimer?.invalidate()
             uiTimer = nil
         }
+        .sheet(isPresented: $showSetCustomEventSheet) {
+            SetCustomEventSheet(
+                defaultName: AppStore.shared.markerLists.selectedList.flatMap { list in
+                    AppStore.shared.markerLists.nextDefaultLabel(in: list.id)
+                } ?? "custom_event",
+                onConfirm: { name in
+                    // 通过被观察的 store 路径修改，确保刷新
+                    let lists = store.markerLists
+                    if let sel = lists.selectedList {
+                        lists.appendItem(MarkerTemplate(displayName: name, baseColorHex: nil, iconName: "tag"), to: sel.id)
+                        // 保持选中不变，显式触发视图刷新
+                        DispatchQueue.main.async { store.objectWillChange.send() }
+                    } else {
+                        let newList = lists.createList(name: "临时会话", desc: "本次采集的临时自定义事件")
+                        lists.appendItem(MarkerTemplate(displayName: name, baseColorHex: nil, iconName: "tag"), to: newList.id)
+                        lists.selectList(id: newList.id)
+                        DispatchQueue.main.async { store.objectWillChange.send() }
+                    }
+                },
+                onCancel: { /* no-op */ }
+            )
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showSaveListSheet) {
+            SavePresetSheet(
+                onConfirm: { title, desc in
+                    let lists = AppStore.shared.markerLists
+                    // 取当前选中列表的条目，按新标题/描述保存为一份新的列表
+                    let items = lists.selectedList?.items ?? []
+                    let newList = lists.createList(name: title, desc: desc, items: items)
+                    lists.selectList(id: newList.id)
+                },
+                onCancel: { /* no-op */ }
+            )
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
+        }
     }
 }
 
@@ -264,8 +411,14 @@ private extension CollectView {
     private var showProgressCard: Bool {
         // 是否显示信号信号流窗口的条件
         store.isCollecting && progressLogEnabled
-        // 如果你想“还得选了信号才显示”，用：
+        // 如果想“还得选了信号才显示”，用：
         // store.isCollecting && !store.selectedSignals.isEmpty
+    }
+    
+    // 显示代码上传流的界面
+    private var showWaveCard: Bool {
+        // 是否显示信号信号流窗口的条件
+        store.isCollecting && waveEnabled
     }
 }
 // MARK: - 下面是本文件内的轻量 UI 工具
@@ -294,118 +447,6 @@ private struct Card<Content: View>: View {
     }
 }
 
-/// 轻量“药丸”标签
-private struct Pill: View {
-    let text: String
-    let selected: Bool
-    let disabled: Bool
-    var onTap: (() -> Void)? = nil          // ADDED
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Text(text).font(.callout).fontWeight(.semibold)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(selected ? Color.accentColor.opacity(0.15) : Color.gray.opacity(0.12))
-        .overlay(
-            Capsule().stroke(selected ? Color.accentColor : Color.gray.opacity(0.4), lineWidth: 1)
-        )
-        .clipShape(Capsule())
-        .contentShape(Capsule())
-        .opacity(disabled ? 0.5 : 1.0)
-        .onTapGesture { if !disabled { onTap?() } }  // ADDED: 点击回调
-        .animation(.easeInOut(duration: 0.15), value: selected)
-    }
-}
-
-/// 简单“自动换行”的 pill 容器（不依赖外部 FlowLayout，防止耦合）
-private struct WrapPills<Item: Hashable, Content: View>: View { // 泛型 + Hashable
-    let items: [Item]
-    let builder: (Item) -> Content
-
-    init(items: [Item], @ViewBuilder builder: @escaping (Item) -> Content) {
-        self.items = items
-        self.builder = builder
-    }
-
-    var body: some View {
-        // 自适应列宽（你原来的实现保留）
-        let cols = [GridItem(.adaptive(minimum: 68), spacing: 8)]
-        LazyVGrid(columns: cols, alignment: .leading, spacing: 8) {
-            ForEach(items, id: \.self) { item in
-                builder(item)
-            }
-        }
-    }
-}
-
-/// 横向小 Chip
-// 等宽“标识”，无独立卡片样式（看起来就是大卡片里的行内元素）
-// - 横向宽度固定，保证每个标识占位一致
-// - 数值更大；单位紧跟数值；标题在下一行
-private struct StatusChip: View {
-    let value: String
-    let unit: String?
-    let label: String
-    var tint: Color = .primary
-
-    // 统一等宽（你也可以换成基于屏宽的计算）
-    private let chipWidth: CGFloat = 88
-
-    var body: some View {
-        VStack(alignment: .center, spacing: 2) {
-            HStack(alignment: .firstTextBaseline, spacing: 2) {
-                Text(value).font(.title3.bold()).foregroundStyle(tint)
-                if let unit = unit {
-                    Text(unit).font(.subheadline.bold()).foregroundStyle(.secondary)
-                }
-            }
-            Text(label)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-        }
-        .frame(width: chipWidth, alignment: .leading)   // 等宽占位（关键）
-        // 无独立背景/边框：看起来就是“大卡片里的文字块”
-    }
-}
-/// 阶段计时小卡：上方时间（mm:ss），下方标签；
-/// - active：当前阶段正在运行 → 高亮底色/描边
-/// - started：这个阶段是否已经开始过 → 决定时间文字是灰色还是黑色
-private struct StageChip: View {
-    let title: String
-    let timeText: String
-    let started: Bool
-    let active: Bool
-
-    var body: some View {
-        VStack(spacing: 2) {
-            HStack(alignment: .firstTextBaseline, spacing: 2) {
-                Text(timeText)
-                    .font(.title3.bold())
-                    .monospacedDigit()
-                    .foregroundStyle(started ? .primary : .secondary)   // 未开始→灰色，开始→黑色
-                Text("") // 保留给将来加单位；现在留空保持版式一致
-            }
-            Text(title)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-        }
-        .padding(.vertical, 6)
-        .frame(maxWidth: .infinity) // 三等分
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(active ? Color.accentColor.opacity(0.12) : Color.gray.opacity(0.08))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(active ? Color.accentColor : Color.gray.opacity(0.35), lineWidth: 1)
-        )
-        .animation(.easeInOut(duration: 0.15), value: active)
-    }
-}
-
-
 /// 简单 key-value 行
 private struct KeyValueRow: View {
     let key: String
@@ -417,6 +458,52 @@ private struct KeyValueRow: View {
             Text(value)
         }
         .font(.subheadline)
+    }
+}
+
+private struct SetCustomEventSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var name: String
+    let onConfirm: (String) -> Void
+    let onCancel: () -> Void
+
+    init(defaultName: String,
+         onConfirm: @escaping (String) -> Void,
+         onCancel: @escaping () -> Void) {
+        _name = State(initialValue: defaultName)
+        self.onConfirm = onConfirm
+        self.onCancel = onCancel
+    }
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Text("请输入事件名")
+                .font(.headline)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            TextField("自定义事件标签", text: $name)
+                .textFieldStyle(.roundedBorder)
+                .font(.body.monospaced())
+
+            HStack {
+                Button("取消") {
+                    onCancel()
+                    dismiss()
+                }
+                .buttonStyle(.bordered)
+
+                Spacer()
+
+                Button("确定") {
+                    let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !trimmed.isEmpty else { return }
+                    onConfirm(trimmed)
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(16)
     }
 }
 

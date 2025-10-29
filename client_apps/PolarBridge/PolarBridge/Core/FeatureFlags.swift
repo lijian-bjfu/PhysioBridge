@@ -10,6 +10,7 @@ import Foundation
 enum FeatureFlags {
     // UserDefaults keys
     private static let kProgressEnabled = "feature.progressLog.enabled"
+    private static let kWaveEnabled = "feature.wave.enabled"
     private static let kCappedEnabled   = "feature.tx.cappedEnabled"
     private static let kMaxPacketBytes  = "feature.tx.maxPacketBytes"
 
@@ -37,6 +38,18 @@ enum FeatureFlags {
         }
         set {
             UserDefaults.standard.set(newValue, forKey: kProgressEnabled)
+            notifyChange()
+        }
+    }
+    
+    static var waveEnabled: Bool {
+        get {
+            let ud = UserDefaults.standard
+            if ud.object(forKey: kWaveEnabled) == nil { ud.set(true, forKey: kWaveEnabled) }
+            return ud.bool(forKey: kWaveEnabled)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: kWaveEnabled)
             notifyChange()
         }
     }

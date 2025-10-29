@@ -63,6 +63,8 @@ final class PolarManager: NSObject, ObservableObject {
 
     /// 最近一次心率/rr 样本（便于 DebugView）
     @Published var lastHr: UInt8 = 0
+    // 保存hhr vhr 的最后数据
+    @Published var lastHrByDevice: [String: UInt8] = [:]
     @Published var lastRrMs: [Int] = []
 
     struct Discovered: Identifiable, Hashable {
@@ -656,6 +658,7 @@ final class PolarManager: NSObject, ObservableObject {
         lastECGuV = nil
         lastPPG1  = nil
         lastPpiMs = nil
+        lastHrByDevice.removeAll()
 
         lossWindows.removeAll()
         loss60sByDeviceAndKind.removeAll()
@@ -809,6 +812,7 @@ final class PolarManager: NSObject, ObservableObject {
 
                 // 1) HR：取末样本作为“当前 HR”
                 if let s = batch.last, chosen.contains(.hhr) || chosen.contains(.vhr) {
+                    self.lastHrByDevice[id] = s.hr // 按照设备记录数据
                     self.lastHr = s.hr
                     self.seqHR &+= 1
                     let p = HRPacket(device: devLabel, t_device: tHost, seq: self.seqHR, bpm: Int(s.hr))
@@ -851,6 +855,7 @@ final class PolarManager: NSObject, ObservableObject {
         hrDisposableById[id]?.dispose()
         hrDisposableById[id] = nil
         rrAlignerReset.remove(id)
+        lastHrByDevice.removeValue(forKey: id)
     }
 
     private func stopHrAll() {

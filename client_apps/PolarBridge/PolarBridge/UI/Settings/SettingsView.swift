@@ -4,6 +4,8 @@ struct SettingsView: View {
     // 与系统持久化直接绑定
     // CollectView 显示信号流开关
     @AppStorage("feature.progressLog.enabled") private var progressLogEnabled: Bool = FeatureFlags.progressLogEnabled
+    // CollectView 显示数据图形开关
+    @AppStorage("feature.wave.enabled") private var waveEnabled: Bool = FeatureFlags.waveEnabled
     // 使用数据限制技术开关
     @AppStorage("feature.tx.cappedEnabled")   private var cappedTxEnabled: Bool   = FeatureFlags.cappedTxEnabled
     
@@ -31,6 +33,15 @@ struct SettingsView: View {
                             }
 
                             Text("关闭后，采集中不显示“采集进度”的滚动信息流。")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                            
+                            LabeledContent("采集数据波形") {
+                                Toggle("", isOn: $waveEnabled)
+                                    .labelsHidden()
+                            }
+
+                            Text("关闭后，采集中不显示实时“数据波形图”。")
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                         }
