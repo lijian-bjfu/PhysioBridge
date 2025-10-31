@@ -64,6 +64,7 @@ struct AddCustomMarkerView: View {
                             onPick: { list in
                                 // 1) 直接切换选中列表（会触发 rebind，UI 自动刷新）
                                 AppStore.shared.markerLists.selectList(id: list.id)
+                                AppStore.shared.markerSeq.rebind(list: AppStore.shared.markerLists.selectedList, preserve: false)
                                 // 2) 关闭两层：先退回上一层，再整体 dismiss
                                 // 由于在同一 NavigationStack 内，这里只需 dismiss 一次即可交给外层
                                 dismiss()

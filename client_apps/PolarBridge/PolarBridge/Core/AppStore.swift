@@ -244,7 +244,8 @@ final class AppStore: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 guard let self else { return }
-                self.markerSeq.bind(list: self.markerLists.selectedList)
+                self.markerSeq.rebind(list: self.markerLists.selectedList, preserve: true)
+                self.objectWillChange.send()
             }
             .store(in: &cancellables)
         
@@ -254,7 +255,7 @@ final class AppStore: ObservableObject {
           .sink { [weak self] _ in
               guard let self else { return }
               self.markerSeq.rebind(list: self.markerLists.selectedList, preserve: true)
-              self.objectWillChange.send()   // 推一把 UI 刷新
+              self.objectWillChange.send()   // UI 刷新
           }
           .store(in: &cancellables)
         

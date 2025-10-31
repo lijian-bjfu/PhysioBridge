@@ -18,7 +18,16 @@ final class MarkerListStore: ObservableObject {
 
     init() {
         load()
-        if selectedListId == nil { selectedListId = lists.first?.id }
+        self.selectedListId = nil
+        saveSelected()
+    }
+    
+    // 防止其它路径（例如 import、批量替换）造成“选中指向失效”
+    private func ensureSelectionIsValid() {
+        if let sel = selectedListId, !lists.contains(where: { $0.id == sel }) {
+            selectedListId = nil
+            saveSelected()
+        }
     }
 
     var selectedList: MarkerList? {
@@ -44,8 +53,12 @@ final class MarkerListStore: ObservableObject {
     }
 
     func deleteList(_ id: UUID) {
+        let removedWasSelected = (selectedListId == id)
         lists.removeAll { $0.id == id }
-        if selectedListId == id { selectedListId = lists.first?.id }
+        if removedWasSelected {
+            selectedListId = nil
+            saveSelected()
+        }
         self.objectWillChange.send()
         save()
     }
@@ -83,12 +96,31 @@ final class MarkerListStore: ObservableObject {
         self.objectWillChange.send()
         save()
     }
+    
+    private func pruneIfEmpty(_ listId: UUID) {
+        guard let idx = lists.firstIndex(where: { $0.id == listId }) else { return }
+        if lists[idx].items.isEmpty {
+            let removedId = lists[idx].id
+            let removedWasSelected = (selectedListId == removedId)
+
+            lists.remove(at: idx)
+
+            if removedWasSelected {
+                selectedListId = nil
+                saveSelected()
+            }
+            self.objectWillChange.send()
+            save()
+            ensureSelectionIsValid()
+        }
+    }
 
     func removeItem(_ itemId: UUID, from listId: UUID) {
         guard let idx = lists.firstIndex(where: { $0.id == listId }) else { return }
         lists[idx].items.removeAll { $0.id == itemId }
         self.objectWillChange.send()
         save()
+        pruneIfEmpty(listId)
     }
     
     func moveItems(in listId: UUID, fromOffsets: IndexSet, toOffset: Int) {
@@ -163,16 +195,8 @@ final class MarkerListStore: ObservableObject {
             self.lists = []
         }
 
-        // 还原选中列表（若不存在则清空）
-        if let sel = ud.string(forKey: selectedKey), let uuid = UUID(uuidString: sel) {
-            if lists.contains(where: { $0.id == uuid }) {
-                self.selectedListId = uuid
-            } else {
-                self.selectedListId = nil
-            }
-        } else {
-            self.selectedListId = nil
-        }
+        self.selectedListId = nil
+        ensureSelectionIsValid()
     }
 
     func save() {

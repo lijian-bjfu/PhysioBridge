@@ -28,7 +28,7 @@ struct CollectView: View {
     @State private var displayTick: Int = 0
     @State private var uiTimer: Timer?
     // 自定义事件输入面板
-    @State private var showSetCustomEventSheet: Bool = false
+    @State private var showAddCustomMarkerView: Bool = false
     @State private var customEventNameInput: String = ""
     @State private var showSaveListSheet: Bool = false
     @State private var presetNameInput: String = ""
@@ -211,6 +211,7 @@ struct CollectView: View {
                                 let isWaiting = store.isCollecting && (store.markerAllowedNext == spec.label) && !isActive
 
                                 let uiState: MarkerUIState = {
+                                    guard store.isCollecting else { return .disabled }
                                     if isActive { return .active }
                                     if isWaiting { return .waiting }
                                     return .disabled
@@ -226,7 +227,7 @@ struct CollectView: View {
                             }
                             // 第6个格子：添加事件（仅在采集中禁用；其余时刻始终可用）
                             Button {
-                                showSetCustomEventSheet = true
+                                showAddCustomMarkerView = true
                             } label: {
                                 VStack(spacing: 4) {
                                     Image(systemName: "plus.square.on.square")
@@ -256,7 +257,11 @@ struct CollectView: View {
                                         let rowEnabled = canActivateCustom && store.markerSeq.canTrigger(index: idx)
                                         
                                         // 合成“用于渲染”的三态：只有满足可触发条件才显示 waiting，否则灰色
-                                        let uiStateForRow = rowState.toUIState(enabled: rowEnabled)
+                                        let uiStateForRow: MarkerUIState = {
+                                            guard isCollecting else { return .disabled }
+                                            return rowState.toUIState(enabled: rowEnabled)
+                                        }()
+                                        
                                         CustomMarkerRow(
                                             title: item.displayName,
                                             iconName: item.iconName ?? "tag",
@@ -292,6 +297,7 @@ struct CollectView: View {
                                         }
                                     }
                                 }
+                                .id(list.id)
                                 .listStyle(.plain)
                                 .padding(.top, 8)
                                 // 为 List 提供明确的高度，避免 0 或矛盾约束
@@ -308,7 +314,9 @@ struct CollectView: View {
                                 .buttonStyle(.borderedProminent)
                                 .controlSize(.large)
                                 .padding(.top, 8)
-                            }
+                            } 
+                        } else {
+                            //
                         }
                     }
                 }
@@ -357,7 +365,13 @@ struct CollectView: View {
             uiTimer?.invalidate()
             uiTimer = nil
         }
-        .sheet(isPresented: $showSetCustomEventSheet) {
+        .onChange(of: store.markerLists.selectedListId) { _, newValue in
+            store.markerSeq.rebind(list: store.markerLists.selectedList, preserve: false)
+            // 触发一次轻量 UI 更新（可选）
+            displayTick &+= 1
+            print("[CollectView] selectedListId changed, rebind & refresh UI.")
+        }
+        .sheet(isPresented: $showAddCustomMarkerView) {
             AddCustomMarkerView(
                 defaultName: AppStore.shared.markerLists.selectedList.flatMap { list in
                     AppStore.shared.markerLists.nextDefaultLabel(in: list.id)
@@ -367,13 +381,10 @@ struct CollectView: View {
                     let lists = store.markerLists
                     if let sel = lists.selectedList {
                         lists.appendItem(MarkerTemplate(displayName: name, baseColorHex: nil, iconName: "tag"), to: sel.id)
-                        // 保持选中不变，显式触发视图刷新
-                        // DispatchQueue.main.async { store.objectWillChange.send() }
                     } else {
                         let newList = lists.createList(name: "临时会话", desc: "本次采集的临时自定义事件")
                         lists.appendItem(MarkerTemplate(displayName: name, baseColorHex: nil, iconName: "tag"), to: newList.id)
                         lists.selectList(id: newList.id)
-                        // DispatchQueue.main.async { store.objectWillChange.send() }
                     }
                 },
                 onCancel: { /* no-op */ }

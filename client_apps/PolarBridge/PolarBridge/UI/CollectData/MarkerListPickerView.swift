@@ -36,7 +36,6 @@ struct MarkerListPickerView: View {
                     ForEach(lists.lists) { list in
                         Button {
                             onPick(list)   // 交给外层决定如何处理
-                            dismiss()
                         } label: {
                             HStack(alignment: .top, spacing: 10) {
                                 VStack(alignment: .leading, spacing: 4) {
