@@ -141,7 +141,7 @@ final class AppStore: ObservableObject {
     @Published var lastError: String? = nil
     @Published var lastSentAt: Date?
     @Published var subjectID: String? = UserDefaults.standard.string(forKey: "subjectID")
-    @Published var trialID: String = UserDefaults.standard.string(forKey: "trialID") ?? "0"
+    @Published var taskID: String = UserDefaults.standard.string(forKey: "taskID") ?? "0"
 
     @Published var markerCount: Int = 0
     
@@ -523,7 +523,7 @@ final class AppStore: ObservableObject {
         stimStart     = nil; stimAccum     = 0
         intervStart   = nil; intervAccum   = 0
 
-        print("[Store] startCollect trial=\(trialID) subject=\(subjectID ?? "—") signals=\(selectedSignals.map{$0.title}.joined(separator: ","))")
+        print("[Store] startCollect task=\(taskID) subject=\(subjectID ?? "—") signals=\(selectedSignals.map{$0.title}.joined(separator: ","))")
 
         // ★ 关键：把当前选择分派到“各自设备”
         applySelectionToConnectedDevices()
@@ -599,38 +599,38 @@ final class AppStore: ObservableObject {
         markerStep += 1
     }
     // MARK: - 更新被试信息
-    func applyParticipant(pid: String, sessionID: String, broadcast: Bool = true) {
+    func applyParticipant(pid: String, tid: String, broadcast: Bool = true) {
         let pidTrim = pid.trimmingCharacters(in: .whitespacesAndNewlines)
-        let sidTrim = sessionID.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !pidTrim.isEmpty, !sidTrim.isEmpty else {
+        let tidTrim = taskID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !pidTrim.isEmpty, !tidTrim.isEmpty else {
             print("[AppStore] applyParticipant: empty pid or session, skip")
             return
         }
         
         // 1) 先更新“单一真相”，无论广播与否
         subjectID = pidTrim
-        trialID   = sidTrim
+        taskID   = tidTrim
         UserDefaults.standard.set(pidTrim, forKey: "subjectID")
-        UserDefaults.standard.set(sidTrim, forKey: "trialID")
+        UserDefaults.standard.set(tidTrim, forKey: "taskID")
 
-        print("[AppStore] participant -> pid=\(pidTrim) session=\(sidTrim)")
+        print("[AppStore] participant -> pid=\(pidTrim) tid=\(tidTrim)")
 
         // 本地立即广播（不依赖开始采集），便于在 LabRecorder 中作为会话开端标注
         guard broadcast else { return }
 
         // 2) session_meta
         let now = Date().timeIntervalSince1970
-        let meta = SessionMetaPacket(device: "app",
+        let meta = TaskMetaPacket(device: "app",
                                      t_device: now,
                                      seq: nil,
                                      pid: pidTrim,
-                                     session: sidTrim)
+                                     task: tidTrim)
         if let s = TelemetryEncoder.encodeToJSONString(meta) {
             UDPSenderService.shared.send(s)
         }
 
         // 2.2) marker（清晰地写入标注流）
-        let label = "session_update: pid=\(pidTrim), session=\(sidTrim)"
+        let label = "task_update: pid=\(pidTrim), task=\(tidTrim)"
         let marker = MarkerPacket(device: "app", t_device: now, seq: nil, label: label)
         if let s2 = TelemetryEncoder.encodeToJSONString(marker) {
             UDPSenderService.shared.send(s2)

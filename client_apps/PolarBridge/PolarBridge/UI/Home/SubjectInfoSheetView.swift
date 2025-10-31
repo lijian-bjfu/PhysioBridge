@@ -7,27 +7,27 @@
 
 import SwiftUI
 
-fileprivate enum SubjectField { case pid, sid }
+fileprivate enum SubjectField { case pid, tid }
 
 struct SubjectInfoSheetView: View {
     let initialPID: String
-    let initialSID: String
+    let initialTID: String
     let onCancel: () -> Void
-    let onConfirm: (_ pid: String, _ sid: String) -> Void
+    let onConfirm: (_ pid: String, _ tid: String) -> Void
 
     @State private var pid: String
-    @State private var sid: String
+    @State private var tid: String
     @FocusState private var focus: SubjectField?
 
-    init(initialPID: String, initialSID: String,
+    init(initialPID: String, initialTID: String,
          onCancel: @escaping () -> Void,
-         onConfirm: @escaping (_ pid: String, _ sid: String) -> Void) {
+         onConfirm: @escaping (_ pid: String, _ tid: String) -> Void) {
         self.initialPID = initialPID
-        self.initialSID = initialSID
+        self.initialTID = initialTID
         self.onCancel = onCancel
         self.onConfirm = onConfirm
         _pid = State(initialValue: initialPID)
-        _sid = State(initialValue: initialSID)
+        _tid = State(initialValue: initialTID)
     }
 
     var body: some View {
@@ -39,12 +39,12 @@ struct SubjectInfoSheetView: View {
                         .autocorrectionDisabled()
                         .focused($focus, equals: .pid)
                         .submitLabel(.next)
-                        .onSubmit { focus = .sid }
+                        .onSubmit { focus = .tid }
 
-                    TextField("测试编号（SESSIONID）", text: $sid)
+                    TextField("任务编号（TID）", text: $tid)
                         .textInputAutocapitalization(.characters)
                         .autocorrectionDisabled()
-                        .focused($focus, equals: .sid)
+                        .focused($focus, equals: .tid)
                         .submitLabel(.done)
                         .onSubmit { focus = nil }
                 }
@@ -62,12 +62,12 @@ struct SubjectInfoSheetView: View {
                         Button("确 定") {
                             focus = nil
                             let p = pid.trimmingCharacters(in: .whitespacesAndNewlines)
-                            let s = sid.trimmingCharacters(in: .whitespacesAndNewlines)
+                            let s = tid.trimmingCharacters(in: .whitespacesAndNewlines)
                             onConfirm(p, s)
                         }
                         .buttonStyle(.borderedProminent)
                         .disabled(pid.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-                                  sid.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                                  tid.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
                 }
             }

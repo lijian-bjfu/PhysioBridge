@@ -111,9 +111,9 @@ struct HomeView: View {
                         TaskRow(
                             icon: "person.text.rectangle",
                             title: "受试者信息",
-                            subtitle: (store.subjectID ?? "").isEmpty && store.trialID.isEmpty
+                            subtitle: (store.subjectID ?? "").isEmpty && store.taskID.isEmpty
                                 ? "记录被测基本信息"
-                                : "PID: \(store.subjectID ?? "") · SESSION: \(store.trialID)",
+                                : "PID: \(store.subjectID ?? "") · TID: \(store.taskID)",
                             enabled: true,
                             action: {
                                 activeModal = .subject
@@ -187,12 +187,12 @@ struct HomeView: View {
                 case .subject:
                     SubjectInfoSheetView(
                         initialPID: store.subjectID ?? "",
-                        initialSID: store.trialID,
+                        initialTID: store.taskID,
                         onCancel: { activeModal = nil },
-                        onConfirm: { pid, sid in
-                            // 写回持久化，并广播到 LSL（session_meta + marker）
+                        onConfirm: { pid, tid in
+                            // 写回持久化，并广播到 LSL（task_meta + marker）
                             @MainActor func apply() {
-                                AppStore.shared.applyParticipant(pid: pid, sessionID: sid)
+                                AppStore.shared.applyParticipant(pid: pid, tid: tid)
                                 activeModal = nil
                             }
                             if Thread.isMainThread { apply() } else { DispatchQueue.main.async { apply() } }

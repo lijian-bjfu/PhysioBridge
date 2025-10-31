@@ -48,7 +48,7 @@ struct InformationView: View {
                     // MARK: 数据态视图 (Data State View)
                     deviceInfoCard
                     collectionInfoCard
-                    sessionInfoCard
+                    taskInfoCard
                 }
             }
             .padding(.horizontal, 16)
@@ -203,7 +203,7 @@ struct InformationView: View {
     }
     
     /// 参与者与实验编号信息卡片
-    private var sessionInfoCard: some View {
+    private var taskInfoCard: some View {
         SectionCard {
             VStack(alignment: .leading, spacing: 12) {
                 Text("实验编号")
@@ -211,7 +211,7 @@ struct InformationView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 
                 LabeledContent("Participant") { Text(viewModel.participantText) }
-                LabeledContent("Session")     { Text(viewModel.sessionText) }
+                LabeledContent("Task")     { Text(viewModel.taskText) }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }

@@ -74,7 +74,7 @@ final class InformationViewModel: ObservableObject {
     @Published var streamSummaries: [StreamInfo] = []
     // 被试编号信息
     @Published var participantText: String = "—"
-    @Published var sessionText: String = "—"
+    @Published var taskText: String = "—"
 
 
     // MARK: init
@@ -82,7 +82,7 @@ final class InformationViewModel: ObservableObject {
         self.store = store
         bindDevice()
         bindStreams()
-        bindSession()
+        bindTask()
     }
 
     // View 注入蓝牙电源状态
@@ -276,18 +276,18 @@ final class InformationViewModel: ObservableObject {
     }
     
     // MARK: - 被试编号信息
-    private func bindSession() {
+    private func bindTask() {
         store.$subjectID
             .map { $0?.isEmpty == false ? $0! : "—" }
             .removeDuplicates()
             .receive(on: RunLoop.main)
             .assign(to: &$participantText)
 
-        store.$trialID
+        store.$taskID
             .map { $0.isEmpty ? "—" : $0 }
             .removeDuplicates()
             .receive(on: RunLoop.main)
-            .assign(to: &$sessionText)
+            .assign(to: &$taskText)
     }
 }
 

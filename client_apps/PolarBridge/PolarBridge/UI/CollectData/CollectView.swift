@@ -59,7 +59,7 @@ struct CollectView: View {
                 SectionHeader("采集状态")
                 Card {
                     // 统一把“空值”转成 0，并加单位
-                    let trialText   = (store.trialID.isEmpty ? "0" : store.trialID)     // 例如 “2”
+                    let taskText   = (store.taskID.isEmpty ? "0" : store.taskID)     // 例如 “2”
                     let subjectText = (store.subjectID ?? "0")                          // 例如 “10”
                     let statusText  = store.isCollecting ? "采集中" : "未开始"
                     let statusTint  : Color = store.isCollecting ? .green : .secondary
@@ -67,7 +67,7 @@ struct CollectView: View {
 
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 12) {
-                            StatusChip(value: trialText,   unit: "次", label: "试次数")
+                            StatusChip(value: taskText,   unit: "次", label: "试次数")
                             StatusChip(value: subjectText, unit: "号", label: "被试 ID")
                             StatusChip(value: statusText,  unit: nil,  label: "采集状态", tint: statusTint)
                             StatusChip(value: markerText,  unit: "个", label: "标记数")

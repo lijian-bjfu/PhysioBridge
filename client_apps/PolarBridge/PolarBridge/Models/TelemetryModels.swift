@@ -114,13 +114,13 @@ struct MarkerPacket: TelemetryPacket {
 }
 
 /// 用于记录受试者及会话编号
-struct SessionMetaPacket: TelemetryPacket {
-    var type = "session_meta"
+struct TaskMetaPacket: TelemetryPacket {
+    var type = "task_meta"
     let device: String       // 建议固定 "app"
     let t_device: Double
     let seq: UInt64?         // 可不填
     let pid: String          // 参与者编号
-    let session: String      // 测试编号
+    let task: String      // 测试编号
 }
 
 
