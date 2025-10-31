@@ -15,7 +15,6 @@ private let kMarkerSpecs: [MarkerSpec] = [
     .init(label: .intervention_end,   icon: "bolt.slash.fill", title: "干预结束")
 ]
 
-
 /// 采集页骨架：A 状态 → B 数据选择 → C 操作/计时/标记 → D 进度
 struct CollectView: View {
     // 读 Store 的最小状态（T4-0 已添加）
@@ -206,28 +205,26 @@ struct CollectView: View {
                         let markerColumns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 3)
                         LazyVGrid(columns: markerColumns, alignment: .center, spacing: 8) {
                             ForEach(kMarkerSpecs) { spec in
-                                let enabled  = isCollecting && (store.markerAllowedNext == spec.label)
-                                let isActive = (store.markerActive == spec.label)
+                                
+                                // 按钮激活与停止条件
+                                let isActive  = (store.markerActive == spec.label)
+                                let isWaiting = store.isCollecting && (store.markerAllowedNext == spec.label) && !isActive
 
-                                let labelView = VStack(spacing: 4) {
-                                    Image(systemName: spec.icon)
-                                    Text(spec.title).font(.caption2)
-                                }
-                                .frame(maxWidth: .infinity, minHeight: 44)
-
-                                if isActive {
-                                    Button { store.emitMarkerInOrder(spec.label) } label: { labelView }
-                                        .buttonStyle(.borderedProminent)
-                                        .tint(.blue)
-                                        .disabled(!enabled)
-                                } else {
-                                    Button { store.emitMarkerInOrder(spec.label) } label: { labelView }
-                                        .buttonStyle(.bordered)
-                                        .tint(.accentColor)
-                                        .disabled(!enabled)
+                                let uiState: MarkerUIState = {
+                                    if isActive { return .active }
+                                    if isWaiting { return .waiting }
+                                    return .disabled
+                                }()
+                                
+                                FixMarkerButtonPill(
+                                    title: spec.title,
+                                    systemIcon: spec.icon,
+                                    uiState: uiState
+                                ) {
+                                    store.emitMarkerInOrder(spec.label)
                                 }
                             }
-                            // 第6个格子：添加事件（采集开始后禁用；开始前始终可用）
+                            // 第6个格子：添加事件（仅在采集中禁用；其余时刻始终可用）
                             Button {
                                 showSetCustomEventSheet = true
                             } label: {
@@ -238,8 +235,10 @@ struct CollectView: View {
                                 .frame(maxWidth: .infinity, minHeight: 44)
                             }
                             .buttonStyle(.bordered)
-                            .tint(.orange)          // 与固定标签区分的颜色
-                            .disabled(isCollecting) // 采集中禁用
+                            .tint(.orange)                          // 与固定标签区分的颜色
+                            .disabled(store.isCollecting)           // 仅在采集中禁用
+                            .opacity(store.isCollecting ? 0.35 : 1) // 视觉提示，但不受 canStart 等限制
+                            .allowsHitTesting(!store.isCollecting)  // 避免外层禁用链路误伤
                         }
                         // 3.1 自定义事件序列（仅展示当前选中列表中的条目）
                         if let list = store.markerLists.selectedList {
@@ -255,11 +254,13 @@ struct CollectView: View {
                                         let item = items[idx]
                                         let rowState = store.markerSeq.state(for: idx)
                                         let rowEnabled = canActivateCustom && store.markerSeq.canTrigger(index: idx)
-
-                                        CustomEventRow(
+                                        
+                                        // 合成“用于渲染”的三态：只有满足可触发条件才显示 waiting，否则灰色
+                                        let uiStateForRow = rowState.toUIState(enabled: rowEnabled)
+                                        CustomMarkerRow(
                                             title: item.displayName,
                                             iconName: item.iconName ?? "tag",
-                                            state: rowState,
+                                            uiState: uiStateForRow,
                                             elapsed: {
                                                 let now = Date().timeIntervalSince1970
                                                 if let s = store.markerSeq.startedAt[idx], let e = store.markerSeq.endedAt[idx] {
@@ -276,17 +277,13 @@ struct CollectView: View {
                                                     store.triggerCustomMarker(index: idx)
                                                 }
                                             },
-                                            onDelete: {
-                                                AppStore.shared.markerLists.removeItem(item.id, from: list.id)
-                                            }
                                         )
-                                        .opacity(rowEnabled ? 1.0 : 0.5)
                                         .listRowInsets(EdgeInsets())
                                         .listRowSeparator(.hidden)
                                         .listRowBackground(Color.clear)
                                         .deleteDisabled(store.markerSeq.state(for: idx) == .active)
                                         .frame(minHeight: rowHeight, alignment: .center)
-                                        .contentShape(Rectangle())  // 扩大可点击/滑动命中区域
+                                        .contentShape(Rectangle())                       // 扩大命中区域
                                     }
                                     .onDelete { offsets in
                                         offsets.forEach { index in
@@ -361,7 +358,7 @@ struct CollectView: View {
             uiTimer = nil
         }
         .sheet(isPresented: $showSetCustomEventSheet) {
-            SetCustomEventSheet(
+            AddCustomMarkerView(
                 defaultName: AppStore.shared.markerLists.selectedList.flatMap { list in
                     AppStore.shared.markerLists.nextDefaultLabel(in: list.id)
                 } ?? "custom_event",
@@ -371,21 +368,19 @@ struct CollectView: View {
                     if let sel = lists.selectedList {
                         lists.appendItem(MarkerTemplate(displayName: name, baseColorHex: nil, iconName: "tag"), to: sel.id)
                         // 保持选中不变，显式触发视图刷新
-                        DispatchQueue.main.async { store.objectWillChange.send() }
+                        // DispatchQueue.main.async { store.objectWillChange.send() }
                     } else {
                         let newList = lists.createList(name: "临时会话", desc: "本次采集的临时自定义事件")
                         lists.appendItem(MarkerTemplate(displayName: name, baseColorHex: nil, iconName: "tag"), to: newList.id)
                         lists.selectList(id: newList.id)
-                        DispatchQueue.main.async { store.objectWillChange.send() }
+                        // DispatchQueue.main.async { store.objectWillChange.send() }
                     }
                 },
                 onCancel: { /* no-op */ }
             )
-            .presentationDetents([.medium])
-            .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showSaveListSheet) {
-            SavePresetSheet(
+            SaveCustomMarkerView(
                 onConfirm: { title, desc in
                     let lists = AppStore.shared.markerLists
                     // 取当前选中列表的条目，按新标题/描述保存为一份新的列表
@@ -395,8 +390,6 @@ struct CollectView: View {
                 },
                 onCancel: { /* no-op */ }
             )
-            .presentationDetents([.medium])
-            .presentationDragIndicator(.visible)
         }
     }
 }
@@ -460,50 +453,3 @@ private struct KeyValueRow: View {
         .font(.subheadline)
     }
 }
-
-private struct SetCustomEventSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    @State private var name: String
-    let onConfirm: (String) -> Void
-    let onCancel: () -> Void
-
-    init(defaultName: String,
-         onConfirm: @escaping (String) -> Void,
-         onCancel: @escaping () -> Void) {
-        _name = State(initialValue: defaultName)
-        self.onConfirm = onConfirm
-        self.onCancel = onCancel
-    }
-
-    var body: some View {
-        VStack(spacing: 12) {
-            Text("请输入事件名")
-                .font(.headline)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            TextField("自定义事件标签", text: $name)
-                .textFieldStyle(.roundedBorder)
-                .font(.body.monospaced())
-
-            HStack {
-                Button("取消") {
-                    onCancel()
-                    dismiss()
-                }
-                .buttonStyle(.bordered)
-
-                Spacer()
-
-                Button("确定") {
-                    let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard !trimmed.isEmpty else { return }
-                    onConfirm(trimmed)
-                    dismiss()
-                }
-                .buttonStyle(.borderedProminent)
-            }
-        }
-        .padding(16)
-    }
-}
-

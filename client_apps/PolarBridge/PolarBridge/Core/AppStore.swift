@@ -248,6 +248,16 @@ final class AppStore: ObservableObject {
             }
             .store(in: &cancellables)
         
+        // 3) 列表内容变化 → 保留进度地重绑
+        markerLists.$lists
+          .receive(on: DispatchQueue.main)
+          .sink { [weak self] _ in
+              guard let self else { return }
+              self.markerSeq.rebind(list: self.markerLists.selectedList, preserve: true)
+              self.objectWillChange.send()   // 推一把 UI 刷新
+          }
+          .store(in: &cancellables)
+        
     }
     // MARK: - 用户自定义事件接口
     func triggerCustomMarker(index: Int) {
@@ -583,15 +593,8 @@ final class AppStore: ObservableObject {
             if let t0 = intervStart { intervAccum += now.timeIntervalSince(t0); intervStart = nil }
         case .stop:
             break
-//        case .custom_event:
-//            customEvents.append(now)
         }
         emitMarker(label)
-        
-        // 自定义事件标记不参与推进阶段序号，也不改变当前active
-        // if label != .custom_event {
-        //     markerStep += 1
-        //}
         markerStep += 1
     }
     // MARK: - 更新被试信息

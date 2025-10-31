@@ -1,53 +1,59 @@
+/*
+ 自定义事件 view
+ */
 import SwiftUI
 
 /// 自定义事件条目行：标题 + 图标 + 计时 + 点击/删除
-struct CustomEventRow: View {
+struct CustomMarkerRow: View {
     let title: String
     let iconName: String?
-    let state: MarkerRunState
+    /// 运行态：waiting / active / done
+    let uiState: MarkerUIState
+    /// 用时
     let elapsed: TimeInterval
     var onTap: () -> Void
-    var onDelete: () -> Void
-
+    
+    // 使用系统白天晚上模式
+    @Environment(\.colorScheme) private var colorScheme
+    
     var body: some View {
-        let isActive = (state == .active)
-        let isDone   = (state == .done)
+ 
+        // 使用统一的事件ui颜色设置
+        let token = MarkerUITheme.token(for: uiState, scheme: colorScheme)
+
 
         HStack(spacing: 8) {
             if let icon = iconName, !icon.isEmpty {
                 Image(systemName: icon)
-                    .foregroundStyle(isDone ? .secondary : .primary)
+                    .symbolRenderingMode(.monochrome)
+                    .foregroundStyle(token.fg)
             }
             Text(title)
                 .font(.body)
-                .foregroundStyle(isDone ? .secondary : .primary)
+                .foregroundStyle(token.fg)
 
             Spacer()
 
             Text(formatMMSS(elapsed))
                 .font(.body.monospacedDigit())
-                .foregroundStyle(isActive ? .green : .secondary)
+                .foregroundStyle(token.fg)
         }
         .padding(.vertical, 10)
         .padding(.horizontal, 12)
         .background(
             RoundedRectangle(cornerRadius: 10)
-                .fill(isActive ? Color.accentColor.opacity(0.12)
-                               : Color.gray.opacity(0.08))
+                .fill(token.bg)
         )
         .overlay(
+            // 无边框
             RoundedRectangle(cornerRadius: 10)
-                .stroke(isActive ? Color.accentColor
-                                 : Color.gray.opacity(0.35), lineWidth: 1)
+                .stroke(Color.clear, lineWidth: 0.0001)
         )
         .contentShape(Rectangle())
-        .onTapGesture { onTap() }
-        // iOS 15+ 原生左滑删除；更低版本退回到长按菜单
-        .contextMenu {
-            Button(role: .destructive) { onDelete() } label: {
-                Label("删除", systemImage: "trash")
-            }
+        .onTapGesture {
+            if uiState == .waiting { onTap() }
         }
+        .animation(.easeInOut(duration: 0.15), value: uiState)
     }
 
     func formatMMSS(_ t: TimeInterval) -> String {
@@ -56,3 +62,5 @@ struct CustomEventRow: View {
         return String(format: "%02d:%02d", m, s)
     }
 }
+
+

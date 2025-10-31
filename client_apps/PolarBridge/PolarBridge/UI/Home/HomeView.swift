@@ -144,19 +144,19 @@ struct HomeView: View {
                     }
                     .padding(.horizontal)
 
-                    // 最近数据（占位）
+                    // 事件历史（占位）
                     SectionCard {
-                        Text("历史记录")
+                        Text("事件记录")
                             .font(.title3.weight(.bold))
                             .frame(maxWidth: .infinity, alignment: .leading)
 
                         TaskRow(
                             icon: "clock.arrow.circlepath",
-                            title: "记录历史",
-                            subtitle: "查看历史记录信息",
+                            title: "事件历史",
+                            subtitle: "查看历史保存的事件列表",
                             enabled: true
                         ) {
-                            HistoryView()   // ← 占位页面
+                            MarkerHistoryView()   // ← 占位页面
                         }
                     }
                     .padding(.horizontal)

@@ -85,6 +85,15 @@ final class ProgressLogViewModel: ObservableObject {
                 self.append("------ \(label) ------", color: .cyan)
             }
             .store(in: &bag)
+        
+        store.markerSeq.emitCustomMarker
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] name in
+                guard let self = self else { return }
+                // 显示 实验阶段 Mark 分割线
+                self.append("------ \(name) ------", color: .cyan)
+            }
+            .store(in: &bag)
 
         // 最新数值：PM → 本地缓存（2 秒 tick 时读取）
         pm.$lastECGuV

@@ -33,11 +33,11 @@ struct StageChip: View {
         .frame(maxWidth: .infinity) // 三等分
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(active ? Color.accentColor.opacity(0.12) : Color.gray.opacity(0.08))
+                .fill(active ? .green.opacity(0.12) : Color.gray.opacity(0.08))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .stroke(active ? Color.accentColor : Color.gray.opacity(0.35), lineWidth: 1)
+                .stroke(active ? .green : Color.gray.opacity(0.35), lineWidth: 1)
         )
         .animation(.easeInOut(duration: 0.15), value: active)
     }

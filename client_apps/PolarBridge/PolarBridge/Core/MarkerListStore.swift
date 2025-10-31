@@ -30,6 +30,7 @@ final class MarkerListStore: ObservableObject {
     func createList(name: String, desc: String, items: [MarkerTemplate] = []) -> MarkerList {
         let list = MarkerList(name: name, desc: desc, items: items)
         lists.append(list)
+        self.objectWillChange.send()
         selectedListId = list.id
         save()
         return list
@@ -38,36 +39,80 @@ final class MarkerListStore: ObservableObject {
     func updateList(_ list: MarkerList) {
         guard let idx = lists.firstIndex(where: { $0.id == list.id }) else { return }
         lists[idx] = list
+        self.objectWillChange.send()
         save()
     }
 
     func deleteList(_ id: UUID) {
         lists.removeAll { $0.id == id }
         if selectedListId == id { selectedListId = lists.first?.id }
+        self.objectWillChange.send()
         save()
     }
 
     func reorderItems(in listId: UUID, fromOffsets: IndexSet, toOffset: Int) {
         guard let idx = lists.firstIndex(where: { $0.id == listId }) else { return }
         lists[idx].items.move(fromOffsets: fromOffsets, toOffset: toOffset)
+        self.objectWillChange.send()
         save()
     }
 
     func appendItem(_ item: MarkerTemplate, to listId: UUID) {
         guard let idx = lists.firstIndex(where: { $0.id == listId }) else { return }
         lists[idx].items.append(item)
+        self.objectWillChange.send()
+        save()
+    }
+    
+    func addItem(to listId: UUID, name: String, iconName: String? = "tag") {
+        let item = MarkerTemplate(displayName: name, baseColorHex: nil, iconName: iconName)
+        appendItem(item, to: listId)
+    }
+    
+    func renameItem(in listId: UUID, itemId: UUID, to newName: String) {
+        guard let li = lists.firstIndex(where: { $0.id == listId }) else { return }
+        guard let it = lists[li].items.firstIndex(where: { $0.id == itemId }) else { return }
+        lists[li].items[it].displayName = newName
+        self.objectWillChange.send()
+        save()
+    }
+    
+    func updateDesc(id: UUID, desc: String) {
+        guard let idx = lists.firstIndex(where: { $0.id == id }) else { return }
+        lists[idx].desc = desc
+        self.objectWillChange.send()
         save()
     }
 
     func removeItem(_ itemId: UUID, from listId: UUID) {
         guard let idx = lists.firstIndex(where: { $0.id == listId }) else { return }
         lists[idx].items.removeAll { $0.id == itemId }
+        self.objectWillChange.send()
+        save()
+    }
+    
+    func moveItems(in listId: UUID, fromOffsets: IndexSet, toOffset: Int) {
+        reorderItems(in: listId, fromOffsets: fromOffsets, toOffset: toOffset)
+    }
+    
+    func replaceItems(in listId: UUID, with newItems: [MarkerTemplate]) {
+        guard let idx = lists.firstIndex(where: { $0.id == listId }) else { return }
+        lists[idx].items = newItems
+        self.objectWillChange.send()
         save()
     }
 
     func selectList(id: UUID?) {
         selectedListId = id
+        self.objectWillChange.send()
         saveSelected()
+    }
+    
+    func renameList(id: UUID, name: String) {
+        guard let idx = lists.firstIndex(where: { $0.id == id }) else { return }
+        lists[idx].name = name
+        self.objectWillChange.send()
+        save()
     }
 
     // 生成当前列表内唯一的默认 label：custom_event, custom_event1, custom_event2...
@@ -135,6 +180,7 @@ final class MarkerListStore: ObservableObject {
         do {
             let enc = JSONEncoder()
             enc.outputFormatting = [.sortedKeys]
+            enc.dateEncodingStrategy = .secondsSince1970
             let data = try enc.encode(lists)
             ud.set(data, forKey: storageKey)
         } catch {
@@ -157,6 +203,7 @@ final class MarkerListStore: ObservableObject {
         do {
             let enc = JSONEncoder()
             enc.outputFormatting = [.prettyPrinted, .sortedKeys]
+            enc.dateEncodingStrategy = .secondsSince1970
             let data = try enc.encode(lists)
             return String(data: data, encoding: .utf8)
         } catch {
@@ -169,8 +216,10 @@ final class MarkerListStore: ObservableObject {
         guard let data = json.data(using: .utf8) else { return false }
         do {
             let dec = JSONDecoder()
+            dec.dateDecodingStrategy = .secondsSince1970
             let newLists = try dec.decode([MarkerList].self, from: data)
             self.lists = newLists
+            self.objectWillChange.send()
             if selectedListId == nil { selectedListId = newLists.first?.id }
             save()
             return true
